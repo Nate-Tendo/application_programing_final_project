@@ -55,6 +55,16 @@ class Body:
         force_mag = G * other.mass / (distance**2)
         return direction.normalized() * force_mag
 
+class Spacecraft(Body):
+    def __init__(self, name, mass, position, velocity, thrust=0.0, orientation=0.0):
+        super().__init__(name, mass, position, velocity)
+        self.thrust = thrust
+        self.orientation = orientation  # radians
+
+    def propulsion_acceleration(self):
+        ax = self.thrust * np.cos(self.orientation) / self.mass
+        ay = self.thrust * np.sin(self.orientation) / self.mass
+        return Vector2(ax, ay)
 class SolarSystem:
     """A simple solar system simulator."""
     def __init__(self, name: str, star: Body):
