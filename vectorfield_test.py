@@ -5,6 +5,9 @@ from scipy import integrate
 
 plt.close('all') 
 
+def gravity_vector(p1,p2,m):
+    pass
+    
 class vector():
     def __init__(self,x,y):
         self.x = x
