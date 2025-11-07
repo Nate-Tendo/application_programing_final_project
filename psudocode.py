@@ -40,11 +40,13 @@ class Vector2:
 
 class Body:
     """Base class for planets, moons, stars, spacecraft."""
+    _instances = []
     def __init__(self, name: str, mass: float, position: Vector2, velocity: Vector2):
         self.name = name
         self.mass = mass # could add a density and size alternative instead of just mass
         self.position = position
         self.velocity = velocity
+        Body._instances.append(self)
 
     def gravitational_acceleration_from(self, other: "Body") -> Vector2:
         # Newton’s law of gravitation
