@@ -3,17 +3,20 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from scipy import integrate
 
+# Constants
+G = 6.6743*10**(-11) # (m^3⋅kg^−1⋅s^−2) - Gravitational constant
+
 plt.close('all') 
 
-def gravity_vector(p1,p2,m):
-    pass
+# def gravity_vector(p1,p2,m):
+    
     
 class vector():
     def __init__(self,x,y):
         self.x = x
         self.y = y
-    def __str__(self,x,y):
-        return (self.x,self.y)
+    def __str__(self):
+        return (f'({self.x},{self.y})')
     def __add__(self,other):
         new_x = self.x + other.x
         new_y = self.y + other.y
@@ -22,9 +25,17 @@ class vector():
         new_x = self.x - other.x
         new_y = self.y - other.y
         return vector(new_x,new_y)
+    def __rsub__(self,other):
+        new_x = -self.x + other.x
+        new_y = -self.y + other.y
+        return vector(new_x,new_y)
     def magnitude(self):
         return (np.sqrt(self.x**2+self.y**2))
-
+    def unit_vec(self):
+        return vector(self.x/self.magnitude(),self.y/self.magnitude())
+    def angle(self):
+        return np.tan(self.y/self.x)        
+        
 class body():
     _instances = []
     def __init__(self,x_i,y_i,vx_i,vy_i,m):
@@ -32,13 +43,14 @@ class body():
         self.x = x_i
         self.y = y_i
         body._instances.append(self)
+    def __str__(self):
+        return (f'Position: ({self.x},{self.y})\nMass: {self.m}')
     def plot(self):
         plt.plot(self.x,self.y,'.',markersize=self.m)
+    def pos(self):
+        return vector(self.x,self.y)
     def vectorfield(self):
-        pass
-
-# Constants
-G = 6.6743*10**(-11) # (m^3⋅kg^−1⋅s^−2) - Gravitational constant
+        return(X,Y,U,V)
 
 # make data
 x = np.arange(-45, 50, 5)
