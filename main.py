@@ -2,6 +2,7 @@ import numpy as np
 from typing import List
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from matplotlib.ticker import MultipleLocator
 import math
 from classes import *
 
@@ -28,9 +29,23 @@ if __name__ == "__main__":
     star1 = Body(name= 'star1', mass = 500, position = Vector2(0,0), velocity = Vector2(0,0),color = 'blue')
     star2 = Body(name= 'star2', mass = 500, position = Vector2(100,100), velocity = Vector2(0,0), color = 'red')
     
-    spaceshipA = Spacecraft(name ='spaceshipA', mass = 10, position = Vector2(100,0), velocity = Vector2(-1,0),color = 'black')
+    spaceshipA = Spacecraft(name ='spaceshipA', mass = 10, position = Vector2(100,0), velocity = Vector2(-1,0),color = 'white')
     
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
+    ax.set_facecolor('black')
+    # ax.set_xlim(-50, 50)
+    # ax.set_ylim(-50, 50)
+    ax.grid(True, which='both', color='white', alpha=0.25, linewidth=0.8)
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.set_frame_on(False)
+    ax.tick_params(tick1On=False)
+    locator = MultipleLocator(10)
+    ax.xaxis.set_major_locator(locator)
+    ax.yaxis.set_major_locator(locator)
+    ax.set_aspect('equal', adjustable='box')
+
+    plt.tight_layout(pad=0.5)
     
     ## ONE POSSIBLE WAY TO PLOT HTE UNIVERSE
     # plot_universe(ax)
@@ -42,7 +57,7 @@ if __name__ == "__main__":
     
     ## ANOTHER POSSIBLE WAY TO PLOT THE UNIVERSE
     scatter = plot_universe(ax)
-    path_line, = ax.plot([], [], color='black', linewidth=1)
+    path_line, = ax.plot([], [], color='white', linewidth=1)
     trail_x, trail_y = [], []
     
     def update(frame):
@@ -60,7 +75,7 @@ if __name__ == "__main__":
     ani = animation.FuncAnimation(fig, update, frames=2000, interval=5, blit=True)
     # plt.show()
     
-    ani.save('gravity_sim_test_1.gif', dpi=80, writer='pillow') 
+    # ani.save('gravity_sim_test_1.gif', dpi=80, writer='pillow') 
     
     ## Philip's Run Section
     

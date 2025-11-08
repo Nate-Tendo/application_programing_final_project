@@ -29,12 +29,19 @@ class vector():
         new_x = -self.x + other.x
         new_y = -self.y + other.y
         return vector(new_x,new_y)
-    def magnitude(self):
+    def __mul__(self,scalar):
+        return vector(self.x*scalar,self.y*scalar)
+    def __rmul__(self,scalar):
+        return vector(self.x*scalar,self.y*scalar)
+    def mag(self):
         return (np.sqrt(self.x**2+self.y**2))
     def unit_vec(self):
-        return vector(self.x/self.magnitude(),self.y/self.magnitude())
+        mag = self.mag()
+        if mag == 0:
+            return vector(0,0)
+        return vector(self.x/mag,self.y/mag)
     def angle(self):
-        return np.tan(self.y/self.x)        
+        return np.arctan2(self.y,self.x)        
         
 class body():
     _instances = []
@@ -42,6 +49,7 @@ class body():
         self.m = m
         self.x = x_i
         self.y = y_i
+        self.p = vector(self.x,self.y)
         body._instances.append(self)
     def __str__(self):
         return (f'Position: ({self.x},{self.y})\nMass: {self.m}')
@@ -49,15 +57,22 @@ class body():
         plt.plot(self.x,self.y,'.',markersize=self.m)
     def pos(self):
         return vector(self.x,self.y)
-    def vectorfield(self):
+    def plot_vectorfield(self,spacing,boundaries):
+        x = np.arange(-boundaries, boundaries+spacing, spacing)
+        y = np.arange(-boundaries, boundaries+spacing, spacing)
+        X, Y = np.meshgrid(x, y)
+        
+        # -G*self.m/(r.magnitude())**2*r.unit_vec()
+        U = -G*self.m/(self.p.mag())**2*self.p.unit_vec()
+        V = -G*self.m/(self.p.mag())**2*self.p.unit_vec()
         return(X,Y,U,V)
 
 # make data
-x = np.arange(-45, 50, 5)
-y = np.arange(-45, 50, 5, )
-X, Y = np.meshgrid(x, y)
-U = X
-V = Y
+# x = np.arange(-50, 65, 5)
+# y = np.arange(-50, 65, 5, )
+# X, Y = np.meshgrid(x, y)
+# U = -X
+# V = Y
 
 # plot
 fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
@@ -78,7 +93,7 @@ ax.set_aspect('equal', adjustable='box')
 
 plt.tight_layout(pad=0.5)
 
-ax.quiver(X, Y, U, V,color='white')
+# ax.quiver(X, Y, U, V,color='white')
 
 Moon = body(0,0,0,0,200)
 Moon.plot()

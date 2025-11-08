@@ -36,3 +36,8 @@ D. Optimization
     i. Make cost function
     ii. Parameterize path
     iii. Update cost function stuff
+
+
+Vector field
+1. Initialize objects
+2. 
