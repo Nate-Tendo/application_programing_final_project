@@ -1,139 +1,108 @@
 import numpy as np
-from typing import List
+import random
 
-
-# GRAVITY_CONSTANT = 6.67430e-11  # gravitational constant --> Although this is the true G, we need to scale it for realism
-GRAVITY_CONSTANT = 1
-
-class Vector2:
-    """2D vector class backed by numpy for fast vector math."""
-    def __init__(self, x: float, y: float):
-        self.v = np.array([x, y], dtype=float)
-
-    @property
-    def x(self):
-        return self.v[0]
-
-    @property
-    def y(self):
-        return self.v[1]
-    
-    @property
-    def angle(self):
-        return np.atan2(self.y,self.x)
-    
-    def __add__(self, other):
-        return Vector2(*(self.v + other.v))
-    
-    def __radd__(self, other):
-        if other == 0:
-            return self
-        return self.__add__(other)
-
-    def __sub__(self, other):
-        return Vector2(*(self.v - other.v))
-    
-    # TODO
-    # Def __rsub__
-
-    def __mul__(self, scalar: float):
-        return Vector2(*(self.v * scalar))
-    
-    def __rmul__(self, scalar):
-        return self.__mul__(scalar)  # handles float * Vector2
-
-    def magnitude(self):
-        return np.linalg.norm(self.v)
-
-    def normalized(self):  # Could rename to be 'unit_vect?"
-        mag = self.magnitude()
-        return Vector2(*(self.v / mag)) if mag > 0 else Vector2(0, 0)
-
-    def copy(self):
-        return Vector2(self.x, self.y)
-
-    def __repr__(self):
-        return f"Vector2({self.x:.6f}, {self.y:.6f})" # Needed more decimals for a smaller time step change
-
-class Body:
-    """Base class for planets, moons, stars, spacecraft."""
-    _instances = []
-    
-    # TODO: Make it easier to initialize velocity at 0 (automatically convert 0 -> Vector2(0,0))
-    
-    def __init__(self, name: str, mass: float, position: Vector2, velocity: Vector2, color = 'blue'):
+class CelestialBody:
+    def __init__(self, name, mass, position, radius=1e7, color='yellow'):
         self.name = name
-        self.mass = mass # could add a density and size alternative instead of just mass
-        self.position = position
-        self.velocity = velocity
+        self.mass = mass
+        self.position = np.array(position, dtype=float)
+        self.radius = radius
         self.color = color
-        Body._instances.append(self)
 
-    def gravitational_acceleration_from(self, other: "Body") -> Vector2:
-        # Newton’s law of gravitation
-        direction = other.position - self.position
-        distance = direction.magnitude()
-        force_mag = GRAVITY_CONSTANT * other.mass / (distance**2)
-        return direction.normalized() * force_mag
-    
-    # TODO, define the following
-    # def plot(self): # Plot a planet
-    #     plt.plot(self.x,self.y,'.',markersize=self.m)
-    # def pos(self):
-    #     return vector(self.x,self.y)
-    # def vectorfield(self): # Each body would create a vector field. In another visualization, we would sum from all of the bodies.
-    #     return(X,Y,U,V)
 
-class Spacecraft(Body):
-    def __init__(self, name, mass, position, velocity, color, thrust=0.0, orientation=0.0):
-        super().__init__(name, mass, position, velocity, color)
-        self.thrust = thrust
-        self.orientation = orientation  # radians
-        self.path = [self.position.copy()]
-
-    def propulsion_acceleration(self):
-        ax = self.thrust * np.cos(self.orientation) / self.mass
-        ay = self.thrust * np.sin(self.orientation) / self.mass
-        return Vector2(ax, ay)
-    
-    def compute_total_current_force(self):
-        return sum([self.gravitational_acceleration_from(body) for body in Body._instances if not isinstance(body,Spacecraft)])
-    
-    def step_forward_dt(self, time_step = 0.1):
-        # Use Velocity Verlet Numerical Integration
-        total_force = self.compute_total_current_force()
-        new_position = self.position + self.velocity*time_step + (1/2)*total_force*(time_step**2)
-        self.position = new_position
-        new_total_force_n_plus_1 = self.compute_total_current_force()
-        new_velocity = self.velocity + (1/2)*(total_force + new_total_force_n_plus_1)*time_step
-        self.velocity = new_velocity
-        self.path.append(self.position.copy())
-        return
-    
-class SolarSystem:
-    """A simple solar system simulator."""
-    def __init__(self, name: str, star: Body):
+class Spaceship:
+    def __init__(self, name, position, velocity=[0, 0], mass=1000, color='white'):
         self.name = name
-        self.star = star
-        self.bodies: List[Body] = [star]  # 1 star always included
+        self.position = np.array(position, dtype=float)
+        self.velocity = np.array(velocity, dtype=float)
+        self.mass = mass
+        self.color = color
+        self.trail = [self.position.copy()]
+        self.thrust_on = False
+        self.orientation = 0.0  # radians
 
-    def add_body(self, body: Body):
-        self.bodies.append(body)
+    def update_trail(self):
+        if len(self.trail) > 2000:
+            self.trail.pop(0)
+        self.trail.append(self.position.copy())
 
-    def all_objects(self):
-        return self.bodies + self.spacecraft
 
-    def update(self, dt: float):
-        objects = self.all_objects()
-        accelerations = {obj: Vector2(0, 0) for obj in objects}
+class PhysicsEngine:
+    G = 6.67430e-11
 
-        # Gravity between all massive bodies (again, unknown functinality)
-        for a in objects:
-            for b in objects:
-                if a is not b:
-                    accelerations[a] = accelerations[a] + a.gravitational_acceleration_from(b)
+    @staticmethod
+    def gravitational_acceleration(pos, bodies):
+        total = np.zeros(2)
+        for b in bodies:
+            r_vec = b.position - pos
+            r = np.linalg.norm(r_vec)
+            if r == 0:
+                continue
+            total += PhysicsEngine.G * b.mass * r_vec / (r ** 3)
+        return total
 
-        # Update positions and velocities (i think... never tested)
-        for obj in objects:
-            obj.velocity = obj.velocity + accelerations[obj] * dt
-            obj.position = obj.position + obj.velocity * dt
+    @staticmethod
+    def integrate_rk4(ship, bodies, dt, thrust=np.zeros(2)):
+        def accel(pos, vel):
+            return PhysicsEngine.gravitational_acceleration(pos, bodies) + thrust / ship.mass
+
+        x0, v0 = ship.position.copy(), ship.velocity.copy()
+        a1 = accel(x0, v0)
+        k1v = a1 * dt
+        k1x = v0 * dt
+
+        a2 = accel(x0 + 0.5 * k1x, v0 + 0.5 * k1v)
+        k2v = a2 * dt
+        k2x = (v0 + 0.5 * k1v) * dt
+
+        a3 = accel(x0 + 0.5 * k2x, v0 + 0.5 * k2v)
+        k3v = a3 * dt
+        k3x = (v0 + 0.5 * k2v) * dt
+
+        a4 = accel(x0 + k3x, v0 + k3v)
+        k4v = a4 * dt
+        k4x = (v0 + k3v) * dt
+
+        ship.velocity = v0 + (k1v + 2*k2v + 2*k3v + k4v) / 6
+        ship.position = x0 + (k1x + 2*k2x + 2*k3x + k4x) / 6
+
+
+class Universe:
+    def __init__(self, num_bodies=4, bounds=(-1e9, 1e9, -1e9, 1e9)):
+        self.bounds = bounds
+        self.bodies = []
+        self.ships = []
+        self.generate_bodies(num_bodies)
+
+    def generate_bodies(self, n):
+        xmin, xmax, ymin, ymax = self.bounds
+        for i in range(n):
+            pos = [random.uniform(xmin, xmax), random.uniform(ymin, ymax)]
+            mass = random.uniform(1e23, 1e26)
+            radius = random.uniform(5e6, 2e7)
+            color = random.choice(['yellow', 'orange', 'blue', 'red'])
+            self.bodies.append(CelestialBody(f"Body{i}", mass, pos, radius, color))
+
+    def add_ship(self, ship):
+        self.ships.append(ship)
+
+
+class TrajectoryPredictor:
+    """Predicts trajectory under gravity + thrust guidance toward goal."""
+    def __init__(self, universe):
+        self.universe = universe
+
+    def predict(self, ship, goal, dt=1000, steps=20000, thrust_mag=5e-3):
+        s = Spaceship(ship.name + "_pred", ship.position.copy(), ship.velocity.copy(), ship.mass)
+        predicted = [s.position.copy()]
+
+        for _ in range(steps):
+            to_goal = goal - s.position
+            dist = np.linalg.norm(to_goal)
+            if dist < 1e7:
+                break
+            dir_to_goal = to_goal / dist
+            thrust = thrust_mag * dir_to_goal
+            PhysicsEngine.integrate_rk4(s, self.universe.bodies, dt, thrust)
+            predicted.append(s.position.copy())
+        return np.array(predicted)
