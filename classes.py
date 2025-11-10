@@ -1,5 +1,6 @@
 import numpy as np
-from typing import List
+from typing import List, Union
+import matplotlib.pyplot as plt
 
 # GRAVITY_CONSTANT = 6.67430e-11  # gravitational constant --> Although this is the true G, we need to scale it for realism
 GRAVITY_CONSTANT = 1
@@ -81,8 +82,11 @@ class Vector2:
     def __sub__(self, other):
         return Vector2(*(self.v - other.v))
     
-    # TODO
-    # Def __rsub__
+    def __rsub__(self, other):
+        if isinstance(other, Vector2):
+            return Vector2(*(other.v - self.v))
+        else:
+            return Vector2(*(np.array(other, dtype=float) - self.v))
 
     def __mul__(self, scalar: float):
         return Vector2(*(self.v * scalar))
@@ -106,10 +110,9 @@ class Vector2:
 class Body:
     """Base class for planets, moons, stars, spacecraft."""
     _instances = []
-    
-    # TODO: Make it easier to initialize velocity at 0 (automatically convert 0 -> Vector2(0,0))
-    
-    def __init__(self, name: str, mass: float, position: Vector2, velocity: Vector2, color = 'blue', radius = 10):
+
+    def __init__(self, name: str, mass: float, position: Vector2, velocity: Union[Vector2, float, int] = 0,color: str = 'blue', 
+                 radius: float = 10):
         self.name = name
         self.mass = mass # could add a density and size alternative instead of just mass
         self.position = position
@@ -117,34 +120,42 @@ class Body:
         self.color = color
         self.radius = radius
         
-        # Check to ensure new body does not creat inteference!
+        # convert scalar 0 to Vector2(0, 0)
+        if isinstance(velocity, (int, float)) and velocity == 0:
+            velocity = Vector2(0, 0)
+        elif not isinstance(velocity, Vector2):
+            raise TypeError("velocity must be a Vector2, int, or float (0 only).")
+        self.velocity = velocity
+
+        # Ensure no overlapping bodies
         for element in Body._instances:
             distance_separation = (element.position - self.position).magnitude()
-            if distance_separation < (self.radius +  element.radius):
-                raise ValueError(f"New Body ({self.name}) Interferes with {element.name}, Cannot Proceed")
-        
+            if distance_separation < (self.radius + element.radius):
+                raise ValueError(f"New Body '{self.name}' interferes with '{element.name}', cannot proceed.")
+
         Body._instances.append(self)
-         
+
     def get_relative_position(self, other: 'Body') -> Vector2:
         return other.position - self.position
-    
+
     def get_relative_speed(self, other: 'Body') -> Vector2:
         return other.velocity - self.velocity
 
     def gravitational_acceleration_from(self, other: 'Body') -> Vector2:
-        # Newton’s law of gravitation
         direction = self.get_relative_position(other)
         distance = direction.magnitude()
         force_mag = GRAVITY_CONSTANT * other.mass / (distance**2 + EPSILON_GRAVITY**2)
         return direction.normalized() * force_mag
-    
-    # TODO, define the following
-    # def plot(self): # Plot a planet
-    #     plt.plot(self.x,self.y,'.',markersize=self.m)
-    # def pos(self):
-    #     return vector(self.x,self.y)
-    # def vectorfield(self): # Each body would create a vector field. In another visualization, we would sum from all of the bodies.
-    #     return(X,Y,U,V)
+
+    # Optional visualization helpers
+    def plot(self, ax=None):
+        if ax is None:
+            ax = plt.gca()
+        ax.plot(self.position.x, self.position.y, 'o', color=self.color, markersize=self.radius)
+        ax.text(self.position.x, self.position.y, f" {self.name}", color=self.color, fontsize=8)
+
+    def __repr__(self):
+        return f"<Body {self.name}: mass={self.mass}, pos={self.position.as_tuple()}, vel={self.velocity.as_tuple()}>"
 
 class Spacecraft(Body):
     def __init__(self, name, mass, position, velocity, color, thrust=0.0, orientation=0.0, radius = 1):
@@ -154,10 +165,12 @@ class Spacecraft(Body):
         self.path = [self.position.copy()]
         self.list_boosters_on = {'up': 0,'down':0, 'left': 0, 'right': 0}
 
-    # TDOO: Update propulsion to take in orietnation relative to spacecraft and translate to the environment
-    def propulsion_acceleration(self,thrust_direction):
-        ax = self.thrust * np.cos(thrust_direction) / self.mass
-        ay = self.thrust * np.sin(thrust_direction) / self.mass
+    def propulsion_acceleration(self, thrust_direction):
+        # Convert relative thrust direction to world angle
+        world_angle = self.orientation + thrust_direction
+        
+        ax = (self.thrust * np.cos(world_angle)) / self.mass
+        ay = (self.thrust * np.sin(world_angle)) / self.mass
         return Vector2(ax, ay)
     
     def compute_total_current_force(self):
