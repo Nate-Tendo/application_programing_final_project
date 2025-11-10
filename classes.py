@@ -33,8 +33,8 @@ class Vector2:
     def __sub__(self, other):
         return Vector2(*(self.v - other.v))
     
-    # TODO
-    # Def __rsub__
+    def __rsub__(self,other):
+        return Vector2(*(other.v-self.v))
 
     def __mul__(self, scalar: float):
         return Vector2(*(self.v * scalar))
@@ -61,28 +61,43 @@ class Body:
     
     # TODO: Make it easier to initialize velocity at 0 (automatically convert 0 -> Vector2(0,0))
     
-    def __init__(self, name: str, mass: float, position: Vector2, velocity: Vector2, color = 'blue'):
+    def __init__(self, name: str, mass: float, position: Vector2, velocity: Vector2, color = 'blue', state = 'static'):
         self.name = name
         self.mass = mass # could add a density and size alternative instead of just mass
         self.position = position
         self.velocity = velocity
         self.color = color
+        self.state = state
         Body._instances.append(self)
 
     def gravitational_acceleration_from(self, other: "Body") -> Vector2:
         # Newton’s law of gravitation
         direction = other.position - self.position
         distance = direction.magnitude()
+        if distance == 0:
+            return Vector2(0, 0)
         force_mag = GRAVITY_CONSTANT * other.mass / (distance**2)
         return direction.normalized() * force_mag
     
-    # TODO, define the following
-    # def plot(self): # Plot a planet
-    #     plt.plot(self.x,self.y,'.',markersize=self.m)
-    # def pos(self):
-    #     return vector(self.x,self.y)
-    # def vectorfield(self): # Each body would create a vector field. In another visualization, we would sum from all of the bodies.
-    #     return(X,Y,U,V)
+    def compute_total_current_force(self):
+        force_vec = sum((self.gravitational_acceleration_from(body)
+                   for body in Body._instances if (body is not self) 
+                   and (not isinstance(body, Spacecraft))), Vector2(0, 0))
+        return force_vec
+    
+    def step_forward_dt(self, time_step = 0.1):
+        # Use Velocity Verlet Numerical Integration
+        total_force = self.compute_total_current_force()
+        new_position = self.position + self.velocity*time_step + (1/2)*total_force*(time_step**2)
+        self.position = new_position
+        new_total_force_n_plus_1 = self.compute_total_current_force()
+        new_velocity = self.velocity + (1/2)*(total_force + new_total_force_n_plus_1)*time_step
+        self.velocity = new_velocity
+        return
+    
+
+# for body in Body._instances:
+    
 
 class Spacecraft(Body):
     def __init__(self, name, mass, position, velocity, color, thrust=0.0, orientation=0.0):
