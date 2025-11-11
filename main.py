@@ -57,50 +57,68 @@ if __name__ == "__main__":
     ## Nate's Run Section
     
     ## Isaac's Run Section
+    
+    ## Section 2 ## Path Planning
     Body._instances.clear() # Clears any bodies left over from previous run
     star1 = Body(name= 'star1', mass = 2000, position = Vector2(0,0), velocity = Vector2(0,0),color = 'blue', radius = 50)
-    # star2 = Body(name= 'star2', mass = 1500, position = Vector2(-300,700), velocity = Vector2(0,0), color = 'red', radius = 50)
-    # star3 = Body(name= 'star2', mass = 600, position = Vector2(-520,-350), velocity = Vector2(0,0), color = 'yellow', radius = 50)
-    
-    spaceshipA = Spacecraft(name ='spaceshipA', mass = 10, position = Vector2(0,-500), velocity = Vector2(0,0), thrust = 10.0, color = 'white', radius = 10)
-    # target = Spacecraft(name = 'target', mass = 0, position = Vector2(-500,500), velocity = Vector2(0,0), color = 'purple', radius = 20 )
-    
+
+    shipA = Spacecraft(name ='shipA', mass = 10, position = Vector2(0,-500), velocity = Vector2(0,0), thrust = 10.0, color = 'white', radius = 10)
+    target = Spacecraft(name = 'target', mass = 0, position = Vector2(-500,500), velocity = Vector2(0,0), color = 'purple', radius = 20 )
+
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
-    # print(spaceshipA.list_boosters_on)
-    
-    ## ANOTHER POSSIBLE WAY TO PLOT THE UNIVERSE
     body_circles = plot_universe(ax,window=1000)
-    path_line, = ax.plot([], [], color='white', linewidth=1)
-    trail_x, trail_y = [], []
-    fig.canvas.mpl_connect('key_press_event', make_on_key(spaceshipA))
     
-    def update(frame):
-        # Always compute physics each frame
+    path_x = np.arange(shipA.position.x, target.position.x, -1)
+    path_y = np.arange(shipA.position.y, target.position.y, 1)
+    
+    ax.plot(path_x,path_y,'y--')
+    
+    ## Section 01 -- Starting Point ##
+    # Body._instances.clear() # Clears any bodies left over from previous run
+    # star1 = Body(name= 'star1', mass = 2000, position = Vector2(0,0), velocity = Vector2(0,0),color = 'blue', radius = 50)
+    # # star2 = Body(name= 'star2', mass = 1500, position = Vector2(-300,700), velocity = Vector2(0,0), color = 'red', radius = 50)
+    # # star3 = Body(name= 'star2', mass = 600, position = Vector2(-520,-350), velocity = Vector2(0,0), color = 'yellow', radius = 50)
+    
+    # spaceshipA = Spacecraft(name ='spaceshipA', mass = 10, position = Vector2(0,-500), velocity = Vector2(0,0), thrust = 10.0, color = 'white', radius = 10)
+    # # target = Spacecraft(name = 'target', mass = 0, position = Vector2(-500,500), velocity = Vector2(0,0), color = 'purple', radius = 20 )
+    
+    # fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
+    # # print(spaceshipA.list_boosters_on)
+    
+    # ## ANOTHER POSSIBLE WAY TO PLOT THE UNIVERSE
+    # body_circles = plot_universe(ax,window=1000)
+    # path_line, = ax.plot([], [], color='white', linewidth=1)
+    # trail_x, trail_y = [], []
+    # fig.canvas.mpl_connect('key_press_event', make_on_key(spaceshipA))
+    
+    # def update(frame):
+    #     # Always compute physics each frame
         
-        is_crashed = spaceshipA.step_forward_dt(time_step=.5)
+    #     is_crashed = spaceshipA.step_forward_dt(time_step=.5)
     
-        if is_crashed:
-            path_line.set_color('red')
-            ani.event_source.stop()
+    #     if is_crashed:
+    #         path_line.set_color('red')
+    #         ani.event_source.stop()
             
-        # Only update the plot every X frames
-        if frame % 1 == 0:
-            trail_x.append(spaceshipA.position.x)
-            trail_y.append(spaceshipA.position.y)
+    #     # Only update the plot every X frames
+    #     if frame % 1 == 0:
+    #         trail_x.append(spaceshipA.position.x)
+    #         trail_y.append(spaceshipA.position.y)
             
-            # The OG
-            path_line.set_data(trail_x, trail_y)
+    #         # The OG
+    #         path_line.set_data(trail_x, trail_y)
             
-            # Update body positions (if they move)
-            for circle, body in zip(body_circles, Body._instances):
-                circle.center = (body.position.x, body.position.y)
+    #         # Update body positions (if they move)
+    #         for circle, body in zip(body_circles, Body._instances):
+    #             circle.center = (body.position.x, body.position.y)
             
-        return [path_line] + body_circles
+    #     return [path_line] + body_circles
     
-    ani = animation.FuncAnimation(fig, update, frames=100, interval=1, blit=True)
-    # plt.show()
+    # ani = animation.FuncAnimation(fig, update, frames=100, interval=1, blit=True)
+    # # plt.show()
     
-    ani.save('gravity_sim_test_2.gif', dpi=30, writer='pillow') 
+    # # ani.save('gravity_sim_test_2.gif', dpi=30, writer='pillow') 
+    
     
     ## Philip's Run Section
     
