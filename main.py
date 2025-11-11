@@ -6,7 +6,52 @@ from matplotlib.ticker import MultipleLocator
 from matplotlib.patches import Circle
 from matplotlib.collections import PatchCollection
 import math
-from classes import Vector2, Body, Spacecraft, SolarSystem
+from classes import Vector2, Body, Spacecraft, SolarSystem,GRAVITY_CONSTANT, EPSILON_GRAVITY
+
+def compute_line_gravity_cost(x_coords: np.ndarray, y_coords: np.ndarray):
+    """
+    Compute the gravitational 'cost' along a line defined by x,y coordinates.
+
+    Parameters
+    ----------
+    x_coords, y_coords : array-like
+        Arrays (or lists) of x and y coordinates along the line. Must have the same length.
+
+    Returns
+    -------
+    total_vector : Vector2
+        Sum of all equal-and-opposite gravitational vectors (represents total imbalance).
+    line_vectors : list of Vector2
+        The opposite-force vectors at each line point.
+    total_magnitude : float
+        The magnitude of the summed total_vector (scalar cost).
+    """
+
+    assert len(x_coords) == len(y_coords), "x_coords and y_coords must be the same length."
+
+    total_vector = Vector2(0, 0)
+    line_vectors = []
+
+    for x, y in zip(x_coords, y_coords):
+        point = Vector2(x, y)
+
+        total_gravity = Vector2(0, 0)
+        for body in Body._instances:
+            direction = body.position - point
+            distance = direction.magnitude()
+            if distance < EPSILON_GRAVITY:
+                continue
+            g_force_mag = GRAVITY_CONSTANT * body.mass / (distance**2 + EPSILON_GRAVITY**2)
+            total_gravity += direction.normalized() * g_force_mag
+
+        # Equal and opposite (to make net zero)
+        opposite_force = total_gravity * -1
+        line_vectors.append(opposite_force)
+        total_vector += opposite_force
+
+    total_magnitude = total_vector.magnitude()
+
+    return total_vector, line_vectors, total_magnitude
 
 def plot_universe(axes,window = 100): 
     # TODO separate the static vs dyanmic bodies to prevent redraws
@@ -55,52 +100,80 @@ def make_on_key(ship):
 
 if __name__ == "__main__":
     ## Nate's Run Section
-    
-    ## Isaac's Run Section
-    Body._instances.clear() # Clears any bodies left over from previous run
-    star1 = Body(name= 'star1', mass = 2000, position = Vector2(0,0), velocity = Vector2(0,0),color = 'blue', radius = 50)
-    # star2 = Body(name= 'star2', mass = 1500, position = Vector2(-300,700), velocity = Vector2(0,0), color = 'red', radius = 50)
-    # star3 = Body(name= 'star2', mass = 600, position = Vector2(-520,-350), velocity = Vector2(0,0), color = 'yellow', radius = 50)
-    
-    spaceshipA = Spacecraft(name ='spaceshipA', mass = 10, position = Vector2(0,-500), velocity = Vector2(0,0), thrust = 10.0, color = 'white', radius = 10)
-    # target = Spacecraft(name = 'target', mass = 0, position = Vector2(-500,500), velocity = Vector2(0,0), color = 'purple', radius = 20 )
-    
+    Body._instances.clear()
+    star1 = Body(name='star1', mass=2000, position=Vector2(110, 110), color='blue', radius=50)
+    star2 = Body(name='star2', mass=1000, position=Vector2(400, -200), color='red', radius=40)
+    star3 = Body(name='star3', mass=800, position=Vector2(-350, 250), color='yellow', radius=30)
+
+    # Example: line from bottom-left to top-right
+    x_line = np.linspace(-600, 600, 40)
+    y_line = np.linspace(-400, 400, 40)
+
+    total_vec, line_vecs, mag = compute_line_gravity_cost(x_line, y_line)
+
+    print("Total equal-and-opposite vector:", total_vec)
+    print("Field imbalance cost magnitude:", mag)
+
+    # ---- Plot using your system ----
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
-    # print(spaceshipA.list_boosters_on)
+    plot_universe(ax, window=800)  # reuse your helper to draw the bodies and grid
+
+    # Plot the line itself
+    ax.plot(x_line, y_line, color='white', linestyle='--', linewidth=1)
+
+    # Plot the equal-and-opposite vectors as small arrows
+    for (x, y, v) in zip(x_line, y_line, line_vecs):
+        ax.arrow(x, y, v.x * 50, v.y * 50, head_width=10, color='cyan', alpha=0.7)
+
+    ax.set_title("Equal and Opposite Gravitational Field Along Line", color='white')
+    plt.show()
+
+
+    # ## Isaac's Run Section
+    # Body._instances.clear() # Clears any bodies left over from previous run
+    # star1 = Body(name= 'star1', mass = 2000, position = Vector2(0,0), velocity = Vector2(0,0),color = 'blue', radius = 50)
+    # # star2 = Body(name= 'star2', mass = 1500, position = Vector2(-300,700), velocity = Vector2(0,0), color = 'red', radius = 50)
+    # # star3 = Body(name= 'star2', mass = 600, position = Vector2(-520,-350), velocity = Vector2(0,0), color = 'yellow', radius = 50)
     
-    ## ANOTHER POSSIBLE WAY TO PLOT THE UNIVERSE
-    body_circles = plot_universe(ax,window=1000)
-    path_line, = ax.plot([], [], color='white', linewidth=1)
-    trail_x, trail_y = [], []
-    fig.canvas.mpl_connect('key_press_event', make_on_key(spaceshipA))
+    # spaceshipA = Spacecraft(name ='spaceshipA', mass = 10, position = Vector2(0,-500), velocity = Vector2(0,0), thrust = 10.0, color = 'white', radius = 10)
+    # # target = Spacecraft(name = 'target', mass = 0, position = Vector2(-500,500), velocity = Vector2(0,0), color = 'purple', radius = 20 )
     
-    def update(frame):
-        # Always compute physics each frame
+    # fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
+    # # print(spaceshipA.list_boosters_on)
+    
+    # ## ANOTHER POSSIBLE WAY TO PLOT THE UNIVERSE
+    # body_circles = plot_universe(ax,window=1000)
+    # path_line, = ax.plot([], [], color='white', linewidth=1)
+    # trail_x, trail_y = [], []
+    # fig.canvas.mpl_connect('key_press_event', make_on_key(spaceshipA))
+    
+    # def update(frame):
+    #     # Always compute physics each frame
         
-        is_crashed = spaceshipA.step_forward_dt(time_step=.5)
+    #     is_crashed = spaceshipA.step_forward_dt(time_step=.5)
     
-        if is_crashed:
-            path_line.set_color('red')
-            ani.event_source.stop()
+    #     if is_crashed:
+    #         path_line.set_color('red')
+    #         ani.event_source.stop()
             
-        # Only update the plot every X frames
-        if frame % 1 == 0:
-            trail_x.append(spaceshipA.position.x)
-            trail_y.append(spaceshipA.position.y)
+    #     # Only update the plot every X frames
+    #     if frame % 1 == 0:
+    #         trail_x.append(spaceshipA.position.x)
+    #         trail_y.append(spaceshipA.position.y)
             
-            # The OG
-            path_line.set_data(trail_x, trail_y)
+    #         # The OG
+    #         path_line.set_data(trail_x, trail_y)
             
-            # Update body positions (if they move)
-            for circle, body in zip(body_circles, Body._instances):
-                circle.center = (body.position.x, body.position.y)
+    #         # Update body positions (if they move)
+    #         for circle, body in zip(body_circles, Body._instances):
+    #             circle.center = (body.position.x, body.position.y)
             
-        return [path_line] + body_circles
+    #     return [path_line] + body_circles
     
-    ani = animation.FuncAnimation(fig, update, frames=100, interval=1, blit=True)
-    # plt.show()
+    # ani = animation.FuncAnimation(fig, update, frames=100, interval=1, blit=True)
+    # # plt.show()
     
-    ani.save('gravity_sim_test_2.gif', dpi=30, writer='pillow') 
+    # ani.save('gravity_sim_test_2.gif', dpi=30, writer='pillow') 
     
     ## Philip's Run Section
     
