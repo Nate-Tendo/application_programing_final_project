@@ -6,7 +6,7 @@ from matplotlib.ticker import MultipleLocator
 from matplotlib.patches import Circle
 from matplotlib.collections import PatchCollection
 import math
-from classes import Vector2, Body, Spacecraft, SolarSystem
+from classes import Vector2, Body, Spacecraft
 
 def plot_universe(axes,window = 100): 
     # TODO separate the static vs dyanmic bodies to prevent redraws
@@ -51,6 +51,36 @@ def make_on_key(ship):
         elif event.key == 'left':
             ship.list_boosters_on['left'] = 1
     return on_key
+
+def vector_field(bodies):
+    bounds = 200
+    spacing = 25
+    x = np.arange(-bounds,bounds+spacing,spacing)
+    y = np.arange(-bounds,bounds+spacing,spacing)
+    X,Y = np.meshgrid(x,y)
+    U = np.zeros_like(X, dtype=float)
+    V = np.zeros_like(Y, dtype=float)
+    soft = 1*10**(-3)
+    for body in bodies:
+        if not isinstance(body,Spacecraft):
+            b_x = body.position.x
+            b_y = body.position.y
+            m = body.mass
+            r_x = b_x-X
+            r_y = b_y-Y
+            mag_sq = np.sqrt(r_x*r_x+r_y*r_y+soft*soft)
+            acc_mag = G*m/(mag_sq)**3
+            U += acc_mag*r_x
+            V += acc_mag*r_y
+            U = np.nan_to_num(U)
+            V = np.nan_to_num(V)
+            Mag = np.hypot(U, V)
+            U_disp = np.nan_to_num(U/(Mag+soft)) 
+            V_disp = np.nan_to_num(V/(Mag+soft))
+            Mag = np.nan_to_num(Mag)
+    return X,Y,U_disp,V_disp,Mag
+    
+
         
 
 if __name__ == "__main__":
@@ -68,16 +98,25 @@ if __name__ == "__main__":
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
     # print(spaceshipA.list_boosters_on)
     
-    ## ANOTHER POSSIBLE WAY TO PLOT THE UNIVERSE
+    bodies = Body._instances
+
+    X,Y,U,V,M = vector_field(bodies)
+
+    # Initial Plotting
     body_circles = plot_universe(ax,window=1000)
-    path_line, = ax.plot([], [], color='white', linewidth=1)
+    q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', scale=0.08, cmap='plasma', pivot='tail',zorder=-1)
+    scatter = plot_universe(ax)
+    path_line, = ax.plot([], [], color='white', linewidth=1,zorder=0)
     trail_x, trail_y = [], []
     fig.canvas.mpl_connect('key_press_event', make_on_key(spaceshipA))
     
+    
+
     def update(frame):
         # Always compute physics each frame
         
         is_crashed = spaceshipA.step_forward_dt(time_step=.5)
+        X,Y,U,V,M = vector_field(bodies)
     
         if is_crashed:
             path_line.set_color('red')
@@ -94,13 +133,18 @@ if __name__ == "__main__":
             # Update body positions (if they move)
             for circle, body in zip(body_circles, Body._instances):
                 circle.center = (body.position.x, body.position.y)
+
+            q.set_UVC(U, V)
+            q.set_array(M.flatten())
+        
+        artists = [path_line, *body_circles, q]
             
-        return [path_line] + body_circles
+        return artists
     
     ani = animation.FuncAnimation(fig, update, frames=100, interval=1, blit=True)
-    # plt.show()
+    plt.show()
     
-    ani.save('gravity_sim_test_2.gif', dpi=30, writer='pillow') 
+    # ani.save('gravity_sim_test_2.gif', dpi=30, writer='pillow') 
     
     ## Philip's Run Section
     

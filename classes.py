@@ -137,22 +137,19 @@ class Body:
         distance = direction.magnitude()
         force_mag = GRAVITY_CONSTANT * other.mass / (distance**2 + EPSILON_GRAVITY**2)
         return direction.normalized() * force_mag
-    
-    # TODO, define the following
-    # def plot(self): # Plot a planet
-    #     plt.plot(self.x,self.y,'.',markersize=self.m)
-    # def pos(self):
-    #     return vector(self.x,self.y)
-    # def vectorfield(self): # Each body would create a vector field. In another visualization, we would sum from all of the bodies.
-    #     return(X,Y,U,V)
 
 class Spacecraft(Body):
+
+    _instances = []
+
     def __init__(self, name, mass, position, velocity, color, thrust=0.0, orientation=0.0, radius = 1):
         super().__init__(name, mass, position, velocity, color, radius)
         self.thrust = thrust
         self.orientation = orientation  # radians
         self.path = [self.position.copy()]
         self.list_boosters_on = {'up': 0,'down':0, 'left': 0, 'right': 0}
+
+        Spacecraft._instances.append(self)
 
     # TDOO: Update propulsion to take in orietnation relative to spacecraft and translate to the environment
     def propulsion_acceleration(self,thrust_direction):
@@ -211,31 +208,3 @@ class Spacecraft(Body):
         self.velocity = new_velocity
         self.path.append(self.position.copy())
         return body_crash
-    
-class SolarSystem:
-    """A simple solar system simulator."""
-    def __init__(self, name: str, star: Body):
-        self.name = name
-        self.star = star
-        self.bodies: List[Body] = [star]  # 1 star always included
-
-    def add_body(self, body: Body):
-        self.bodies.append(body)
-
-    def all_objects(self):
-        return self.bodies + self.spacecraft
-
-    def update(self, dt: float):
-        objects = self.all_objects()
-        accelerations = {obj: Vector2(0, 0) for obj in objects}
-
-        # Gravity between all massive bodies (again, unknown functinality)
-        for a in objects:
-            for b in objects:
-                if a is not b:
-                    accelerations[a] = accelerations[a] + a.gravitational_acceleration_from(b)
-
-        # Update positions and velocities (i think... never tested)
-        for obj in objects:
-            obj.velocity = obj.velocity + accelerations[obj] * dt
-            obj.position = obj.position + obj.velocity * dt
