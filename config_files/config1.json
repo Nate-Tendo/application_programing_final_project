@@ -1,0 +1,37 @@
+{
+  "bounds": {
+    "x_min": -100,
+    "x_max": 100,
+    "y_min": -100,
+    "y_max": 100
+  },
+
+  "bodies": [
+    {
+      "name": "Sun",
+      "mass": 10000,
+      "position": [0, 0],
+      "radius": 10,
+      "color": "yellow"
+    },
+    {
+      "name": "Earth",
+      "mass": 10,
+      "position": [50, 0],
+      "radius": 3,
+      "color": "blue"
+    }
+  ],
+
+  "ships": [
+    {
+      "name": "Voyager",
+      "mass": 0.01,
+      "position": [55, 0],
+      "velocity": [0, 1],
+      "radius": 2,
+      "color": "purple",
+      "max_thrust": 0.05
+    }
+  ]
+}
