@@ -55,9 +55,6 @@ class Vector2:
     def __repr__(self):
         return f"Vector2({self.x:.6f}, {self.y:.6f})" # Needed more decimals for a smaller time step change
 
-def GravAccel(G,p1,m1,p2):
-    a = G
-    
 class Body:
     """Base class for planets, moons, stars, spacecraft."""
     _instances = []
@@ -68,8 +65,6 @@ class Body:
         self.name = name
         self.mass = mass # could add a density and size alternative instead of just mass
         self.position = position
-        self.x = position.v[0]
-        self.y = position.v[1]
         self.velocity = velocity
         self.color = color
         self.state = state

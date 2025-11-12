@@ -94,6 +94,17 @@ ax.set_aspect('equal', adjustable='box')
 plt.tight_layout(pad=0.5)
 
 # ax.quiver(X, Y, U, V,color='white')
+    # b_x = np.array([i.x for i in bodies])
+    # b_y = np.array([i.y for i in bodies])
+    # b_m = np.array([i.mass for i in bodies])
+    # r_x = b_x[None, None, :] - X[..., None]
+    # r_y = b_y[None, None, :] - X[..., None]
+    
+    # r2 = r_x*r_x + r_y*r_y
+    # inv_r3 = 1.0 / (r2 * np.sqrt(r2))
+    # U = G * np.sum(m[None, None, :] * dx * inv_r3, axis=2)
+    # V = G * np.sum(m[None, None, :] * dy * inv_r3, axis=2)
+    
 
 Moon = body(0,0,0,0,200)
 Moon.plot()
