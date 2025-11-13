@@ -197,6 +197,8 @@ class Spacecraft(Body):
             thrust_mag = np.linalg.norm(ship_thrust)
             if thrust_mag > self.max_thrust:
                 ship_thrust = ship_thrust / thrust_mag * self.max_thrust  # rescale
+        else:
+            ship_thrust=np.array((0,0))
 
         # Track fuel spent
         self.fuel_spent += (np.linalg.norm(ship_thrust) * self.mass) * time_step
