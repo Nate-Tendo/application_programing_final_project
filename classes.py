@@ -1,9 +1,17 @@
 import numpy as np
 from typing import List
+from dataclasses import dataclass
 
-# GRAVITY_CONSTANT = 6.67430e-11  # gravitational constant --> Although this is the true G, we need to scale it for realism
+
 GRAVITY_CONSTANT = 1
 EPSILON_GRAVITY = 1e-8
+
+@dataclass
+class Bounds:
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
 
 def segment_circle_intersect(A, B, C, r): # This function definition written with ChatGPT's help as the math for line segment into a circle gets messy
     """
@@ -51,160 +59,140 @@ def segment_circle_intersect(A, B, C, r): # This function definition written wit
 
     return False
 
-class Vector2:
-    """2D vector class backed by numpy for fast vector math."""
-    def __init__(self, x: float, y: float):
-        self.v = np.array([x, y], dtype=float)
-
-    @property
-    def x(self):
-        return self.v[0]
-
-    @property
-    def y(self):
-        return self.v[1]
-    
-    @property
-    def angle(self):
-        return np.atan2(self.y,self.x)
-    
-    def __add__(self, other):
-        if other == 0:
-            return self
-        return Vector2(*(self.v + other.v))
-    
-    def __radd__(self, other):
-        if other == 0:
-            return self
-        return self.__add__(other)
-
-    def __sub__(self, other):
-        return Vector2(*(self.v - other.v))
-    
-    # TODO
-    # Def __rsub__
-
-    def __mul__(self, scalar: float):
-        return Vector2(*(self.v * scalar))
-    
-    def __rmul__(self, scalar):
-        return self.__mul__(scalar)  # handles float * Vector2
-
-    def magnitude(self):
-        return np.linalg.norm(self.v)
-
-    def normalized(self):  # Could rename to be 'unit_vect?"
-        mag = self.magnitude()
-        return Vector2(*(self.v / mag)) if mag > 0 else Vector2(0, 0)
-
-    def copy(self):
-        return Vector2(self.x, self.y)
-
-    def __repr__(self):
-        return f"Vector2({self.x:.6f}, {self.y:.6f})" # Needed more decimals for a smaller time step change
-
 class Body:
     """Base class for planets, moons, stars, spacecraft."""
     _instances = []
-    
+    _index_counter = -999
     # TODO: Make it easier to initialize velocity at 0 (automatically convert 0 -> Vector2(0,0))
     
-    def __init__(self, name: str, mass: float, position: Vector2, velocity: Vector2, color = 'blue', radius = 10):
+    def __init__(self, name: str, mass: float, position: list, velocity = (0,0), color = 'blue', radius = 10, is_dynamically_updated = True):
         self.name = name
         self.mass = mass # could add a density and size alternative instead of just mass
-        self.position = position
-        self.velocity = velocity
+        self.position = np.array(position,dtype=float)
+        self.velocity = np.array(velocity,dtype=float)
         self.color = color
         self.radius = radius
+        self.is_crashed = False
+        self.is_dynamically_updated = is_dynamically_updated
         
         # Check to ensure new body does not creat inteference!
         for element in Body._instances:
-            distance_separation = (element.position - self.position).magnitude()
+            distance_separation = np.linalg.norm((element.position - self.position))
             if distance_separation < (self.radius +  element.radius):
                 raise ValueError(f"New Body ({self.name}) Interferes with {element.name}, Cannot Proceed")
         
         Body._instances.append(self)
+        if len(Body._instances) == 0:
+            Body._index_counter = 0
+        else:
+            Body._index_counter += 1
+
+    @property
+    def x(self):
+        return self.position[0]
+    
+    @property
+    def y(self):
+        return self.position[1]
+    
+    @property
+    def vx(self):
+        return self.velocity[0]
+    
+    @property
+    def vy(self):
+        return self.velocity[1]
          
-    def get_relative_position(self, other: 'Body') -> Vector2:
+    def get_relative_position(self, other: 'Body') -> np.array:
         return other.position - self.position
     
-    def get_relative_speed(self, other: 'Body') -> Vector2:
+    def get_relative_speed(self, other: 'Body') -> np.array:
         return other.velocity - self.velocity
 
-    def gravitational_acceleration_from(self, other: 'Body') -> Vector2:
+    def gravitational_acceleration_from(self, other: 'Body') -> np.array:
         # Newton’s law of gravitation
-        direction = self.get_relative_position(other)
-        distance = direction.magnitude()
-        force_mag = GRAVITY_CONSTANT * other.mass / (distance**2 + EPSILON_GRAVITY**2)
-        return direction.normalized() * force_mag
+        distance_vector = other.position - self.position                                                 # Position of body from the perspective of self, these are numpy arrays
+        distance_magnitude = np.linalg.norm(distance_vector)                                             # This will be a scalar
+        acceleration_vector = GRAVITY_CONSTANT * other.mass * distance_vector / (distance_magnitude**3)  # Derived from m1a = Gm1m2/d^2, note how m1 cancels.
+        return acceleration_vector    
+    
+    def compute_total_current_acceleration_from_bodies(self):
+        accel_vec = sum((self.gravitational_acceleration_from(body)
+                    for body in Body._instances if (body is not self) 
+                    and (not isinstance(body, Spacecraft))), np.array([0,0]))
+        return accel_vec
+    
+    def step_forward_dt(self, time_step = 0.1):
+        # Use Velocity Verlet Numerical Integration
+        total_accel = self.compute_total_current_acceleration_from_bodies()
+        new_position = self.position + self.velocity*time_step + (1/2)*total_accel*(time_step**2)
+        self.position = new_position
+        new_total_accel_n_plus_1 = self.compute_total_current_acceleration_from_bodies()
+        new_velocity = self.velocity + (1/2)*(total_accel + new_total_accel_n_plus_1)*time_step
+        self.velocity = new_velocity
+        return
 
 class Spacecraft(Body):
 
     _instances = []
+    _index_counter = -999
 
-    def __init__(self, name, mass, position, velocity, color, thrust=0.0, orientation=0.0, radius = 1):
-        super().__init__(name, mass, position, velocity, color, radius)
+    def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False):
+        super().__init__(name, mass, position, velocity, color, radius, is_dynamically_updated)
         self.thrust = thrust
         self.orientation = orientation  # radians
-        self.path = [self.position.copy()]
+        self.path = np.array([self.position.copy()])  # Store the path as an array of positions
         self.list_boosters_on = {'up': 0,'down':0, 'left': 0, 'right': 0}
+        self.fuel_spent = 0.0
+        self.is_target = is_target
+
+        if self.name == 'target' and not self.is_target:
+            raise ValueError("Spacecraft named 'target' must have is_target=True")
+        
+        if self.is_target and any(ship.name == 'target' and ship is not self for ship in Spacecraft._instances):
+            raise ValueError("There can only be one target spacecraft")
 
         Spacecraft._instances.append(self)
+        if len(Spacecraft._instances) == 0:
+            Spacecraft._index_counter = 0
+        else:
+            Spacecraft._index_counter += 1
 
     # TDOO: Update propulsion to take in orietnation relative to spacecraft and translate to the environment
     def propulsion_acceleration(self,thrust_direction):
         ax = self.thrust * np.cos(thrust_direction) / self.mass
         ay = self.thrust * np.sin(thrust_direction) / self.mass
-        return Vector2(ax, ay)
-    
-    def compute_total_current_force(self):
-        
-        force_bodies = sum([self.gravitational_acceleration_from(body) for body in Body._instances if not isinstance(body,Spacecraft)])
-        
-        
-        ## VERY SIMPLE FORCE-BOOSTING SCHEME. Will definitely need to update and probably translate into an appropriate frame
-        force_boosters = 0
-        
-        if self.list_boosters_on['up'] == 1:
-            print('up')
-            force_boosters += self.propulsion_acceleration(np.deg2rad(90))
-            self.list_boosters_on['up'] = 0
-        if self.list_boosters_on['down'] == 1:
-            print('down')
-            force_boosters += self.propulsion_acceleration(np.deg2rad(-90))
-            self.list_boosters_on['down'] = 0
-            
-        if self.list_boosters_on['left'] == 1:
-            print('left')
-            force_boosters += self.propulsion_acceleration(np.deg2rad(180))
-            self.list_boosters_on['left'] = 0
-            
-        if self.list_boosters_on['right'] == 1:
-            print('right')
-            force_boosters += self.propulsion_acceleration(np.deg2rad(0))
-            self.list_boosters_on['right'] = 0
-        
-        return force_bodies + force_boosters
+        return np.array([ax,ay])
     
     def step_forward_dt(self, time_step = 0.1):
-        body_crash = False
         
         # Use Velocity Verlet Numerical Integration
-        total_force = self.compute_total_current_force()
-        new_position = self.position + self.velocity*time_step + (1/2)*total_force*(time_step**2)
+        for ship in Spacecraft._instances:
+            if ship.is_target and ship is not self:
+                self.orientation = np.arctan2(
+                    ship.position[1] - self.position[1],
+                    ship.position[0] - self.position[0]
+                )
+
+        ship_thrust = self.propulsion_acceleration(self.orientation)
+        self.fuel_spent += (np.linalg.norm(ship_thrust) * self.mass) * time_step
+        
+        total_accel = self.compute_total_current_acceleration_from_bodies() + ship_thrust
+        new_position = self.position + self.velocity*time_step + (1/2)*total_accel*(time_step**2)
         
         # BEFORE WE SET THSI NEW POSITION, WE WANT TO CHECK IF WE'VE HIT ANYTHING..
         # Taking some inspiration from Chat-GPT, but this is going to be quite computationally expensive...
         for body in Body._instances:
             if body is self:
                 continue
-            if segment_circle_intersect(self.position.v, new_position.v, body.position.v, body.radius): #Remember that position.v is the position vector!
-                body_crash = True
+            if segment_circle_intersect(self.position, new_position, body.position, body.radius): #Remember that position.v is the position vector!
+                self.is_crashed = True
                 print(f"Crash between {self.name} and {body.name}")
         
         self.position = new_position
-        new_total_force_n_plus_1 = self.compute_total_current_force()
-        new_velocity = self.velocity + (1/2)*(total_force + new_total_force_n_plus_1)*time_step
+        new_total_accel_n_plus_1 = self.compute_total_current_acceleration_from_bodies()
+        new_velocity = self.velocity + (1/2)*(total_accel + new_total_accel_n_plus_1)*time_step
         self.velocity = new_velocity
-        self.path.append(self.position.copy())
-        return body_crash
+        self.path = np.append(self.path, [self.position.copy()], axis=0)
+
+        return None
