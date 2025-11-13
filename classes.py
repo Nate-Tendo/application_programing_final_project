@@ -74,13 +74,6 @@ class Body:
         self.is_crashed = False
         self.is_dynamically_updated = is_dynamically_updated
         
-        # convert scalar 0 to Vector2(0, 0)
-        if isinstance(velocity, (int, float)) and velocity == 0:
-            velocity = Vector2(0, 0)
-        elif not isinstance(velocity, Vector2):
-            raise TypeError("velocity must be a Vector2, int, or float (0 only).")
-        self.velocity = velocity
-
         # Ensure no overlapping bodies
         for element in Body._instances:
             distance_separation = np.linalg.norm((element.position - self.position))
