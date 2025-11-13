@@ -139,12 +139,13 @@ class Spacecraft(Body):
 
     def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False):
         super().__init__(name, mass, position, velocity, color, radius, is_dynamically_updated)
-        self.thrust = thrust
+        self.max_thrust = thrust
         self.orientation = orientation  # radians
         self.path = np.array([self.position.copy()])  # Store the path as an array of positions
         self.list_boosters_on = {'up': 0,'down':0, 'left': 0, 'right': 0}
         self.fuel_spent = 0.0
         self.is_target = is_target
+        self.navigation_strategy = 'none'  
 
         if self.name == 'target' and not self.is_target:
             raise ValueError("Spacecraft named 'target' must have is_target=True")
@@ -159,9 +160,9 @@ class Spacecraft(Body):
             Spacecraft._index_counter += 1
 
     # TDOO: Update propulsion to take in orietnation relative to spacecraft and translate to the environment
-    def propulsion_acceleration(self,thrust_direction):
-        ax = self.thrust * np.cos(thrust_direction) / self.mass
-        ay = self.thrust * np.sin(thrust_direction) / self.mass
+    def propulsion_acceleration(self,thrust_magnitude,thrust_direction):
+        ax = thrust_magnitude * np.cos(thrust_direction) / self.mass
+        ay = thrust_magnitude * np.sin(thrust_direction) / self.mass
         return np.array([ax,ay])
     
     def step_forward_dt(self, time_step = 0.1):
@@ -174,11 +175,35 @@ class Spacecraft(Body):
                     ship.position[0] - self.position[0]
                 )
 
-        ship_thrust = self.propulsion_acceleration(self.orientation)
+        accel_from_planets = self.compute_total_current_acceleration_from_bodies()
+
+        if self.navigation_strategy == 'thrust_towards_target':
+            ship_thrust = self.propulsion_acceleration(self.max_thrust, self.orientation)
+
+        elif self.navigation_strategy == 'counteract_gravity':
+            thrust_towards_target = self.propulsion_acceleration(self.max_thrust * .2, self.orientation)
+
+            # Find direction toward target
+            if np.linalg.norm(thrust_towards_target) > 0:
+                target_unit_vector = thrust_towards_target / np.linalg.norm(thrust_towards_target)
+            else:
+                target_unit_vector = np.array([0,0])
+
+            # Compute gravity aligned with thrust
+            gravity_aligned_with_thrust = np.dot(accel_from_planets, target_unit_vector) * target_unit_vector
+
+            ship_thrust = thrust_towards_target - (accel_from_planets - gravity_aligned_with_thrust)
+
+            thrust_mag = np.linalg.norm(ship_thrust)
+            if thrust_mag > self.max_thrust:
+                ship_thrust = ship_thrust / thrust_mag * self.max_thrust  # rescale
+
+        # Track fuel spent
         self.fuel_spent += (np.linalg.norm(ship_thrust) * self.mass) * time_step
-        
-        total_accel = self.compute_total_current_acceleration_from_bodies() + ship_thrust
-        new_position = self.position + self.velocity*time_step + (1/2)*total_accel*(time_step**2)
+
+        # Apply total acceleration (gravity + thrust)
+        total_accel = accel_from_planets + ship_thrust
+        new_position = self.position + self.velocity*time_step + 0.5*total_accel*(time_step**2)
         
         # BEFORE WE SET THSI NEW POSITION, WE WANT TO CHECK IF WE'VE HIT ANYTHING..
         # Taking some inspiration from Chat-GPT, but this is going to be quite computationally expensive...

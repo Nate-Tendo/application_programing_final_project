@@ -149,16 +149,18 @@ if __name__ == "__main__":
     # Nate's Run Section & Scenario Setup #
     # ==================================== #
     Body._instances.clear()
-    star1 = Body(name='star1', mass=8000, position=(110, 150), color='blue', radius=50, is_dynamically_updated = False)
-    star2 = Body(name='star2', mass=1000, position=(400, -200), color='red', radius=40, is_dynamically_updated = False)
-    star3 = Body(name='star3', mass=800,  position=(-350, 250), color='yellow', radius=30, is_dynamically_updated = False)
+    star1 = Body(name='star1', mass=12000, position=(110, 300), color='blue', radius=50, is_dynamically_updated = True)
+    star2 = Body(name='star2', mass=100, position=(400, -200), velocity = (-3,.5), color='red', radius=40, is_dynamically_updated = True)
+    star3 = Body(name='star3', mass=800,  position=(-350, 300), velocity = (0,2), color='yellow', radius=30, is_dynamically_updated = True)
 
-    shipA = Spacecraft(name='spaceshipA', mass=10, position=(-600, -400), velocity = (2,0), color='white', radius = 10, thrust=10.0, is_dynamically_updated = True)
-    target = Spacecraft(name='target', mass=10, position=(600, 400), color='purple', radius = 50, is_target=True, is_dynamically_updated = False)
+    shipA = Spacecraft(name='spaceshipA', mass=1, position=(-600, -400), velocity = (2,0), color='white', radius = 10, thrust=1, is_dynamically_updated = True)
+    target = Spacecraft(name='target', mass=1, position=(600, 400), color='purple', radius = 50, is_target=True, is_dynamically_updated = False)
+
+    shipA.navigation_strategy = 'thrust_towards_target'
 
     bodies = Body._instances
     ships = Spacecraft._instances
-    dt = 1  # time step
+    dt = .1  # time step
 
     # Example: line from bottom-left to top-right
     x_line = np.linspace(-600, 600, 40)
@@ -237,10 +239,10 @@ if __name__ == "__main__":
             
         return artists
     
-    ani = animation.FuncAnimation(fig, update, frames=100, interval=.1, blit=True)
+    ani = animation.FuncAnimation(fig, update, frames=100, interval=1, blit=True)
 
-    ani.save('simple_path_test.gif', dpi=30, writer='pillow')
-    # plt.show() 
+    # ani.save('simple_path_test.gif', dpi=30, writer='pillow')
+    plt.show() 
     print('Fuel Spent:',ships[0].fuel_spent * dt)
     
     ## Philip's Run Section
