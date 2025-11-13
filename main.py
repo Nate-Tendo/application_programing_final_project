@@ -6,52 +6,56 @@ from matplotlib.ticker import MultipleLocator
 from matplotlib.patches import Circle
 from matplotlib.collections import PatchCollection
 import math
-from classes import Vector2, Body, Spacecraft, SolarSystem,GRAVITY_CONSTANT, EPSILON_GRAVITY
+from classes import Vector2, Body, Spacecraft, SolarSystem, GRAVITY_CONSTANT, EPSILON_GRAVITY
 
-def compute_line_gravity_cost(x_coords: np.ndarray, y_coords: np.ndarray):
+def compute_line_gravity_cost(x_coords: np.ndarray, y_coords: np.ndarray, include_inertia=False):
     """
-    Compute the gravitational 'cost' along a line defined by x,y coordinates.
-
-    Parameters
-    ----------
-    x_coords, y_coords : array-like
-        Arrays (or lists) of x and y coordinates along the line. Must have the same length.
-
-    Returns
-    -------
-    total_vector : Vector2
-        Sum of all equal-and-opposite gravitational vectors (represents total imbalance).
-    line_vectors : list of Vector2
-        The opposite-force vectors at each line point.
-    total_magnitude : float
-        The magnitude of the summed total_vector (scalar cost).
+    Compute the net gravitational + inertial vector along a line of points.
+    If include_inertia=True, adds a centrifugal term based on circular orbital velocity.
     """
-
     assert len(x_coords) == len(y_coords), "x_coords and y_coords must be the same length."
 
     total_vector = Vector2(0, 0)
     line_vectors = []
+    sum_mag = 0.0
 
     for x, y in zip(x_coords, y_coords):
         point = Vector2(x, y)
 
         total_gravity = Vector2(0, 0)
+        total_inertia = Vector2(0, 0)
+
         for body in Body._instances:
             direction = body.position - point
             distance = direction.magnitude()
             if distance < EPSILON_GRAVITY:
                 continue
-            g_force_mag = GRAVITY_CONSTANT * body.mass / (distance**2 + EPSILON_GRAVITY**2)
-            total_gravity += direction.normalized() * g_force_mag
 
-        # Equal and opposite (to make net zero)
-        opposite_force = total_gravity * -1
+            # gravitational acceleration
+            g_force_mag = GRAVITY_CONSTANT * body.mass / (distance**2 + EPSILON_GRAVITY**2)
+            grav_vec = direction.normalized() * g_force_mag
+            total_gravity += grav_vec
+
+            if include_inertia:
+                # Compute the orbital velocity that would balance gravity for circular orbit
+                orbital_speed = np.sqrt(GRAVITY_CONSTANT * body.mass / (distance + EPSILON_GRAVITY))
+                
+                # Centrifugal acceleration is directed outward (away from the center)
+                centrifugal_acc = direction.normalized() * (-orbital_speed**2 / (distance + EPSILON_GRAVITY))
+                total_inertia += centrifugal_acc
+
+        # Combine effects
+        net_vector = total_gravity + total_inertia
+
+        # Equal and opposite (to visualize balancing direction)
+        opposite_force = net_vector * -1
+        sum_mag += opposite_force.magnitude()
         line_vectors.append(opposite_force)
         total_vector += opposite_force
 
     total_magnitude = total_vector.magnitude()
 
-    return total_vector, line_vectors, total_magnitude
+    return total_vector, line_vectors, total_magnitude, sum_mag
 
 def plot_universe(axes,window = 100): 
     # TODO separate the static vs dyanmic bodies to prevent redraws
@@ -109,10 +113,11 @@ if __name__ == "__main__":
     x_line = np.linspace(-600, 600, 40)
     y_line = np.linspace(-400, 400, 40)
 
-    total_vec, line_vecs, mag = compute_line_gravity_cost(x_line, y_line)
+    total_vec, line_vecs, mag, sum_mag = compute_line_gravity_cost(x_line, y_line, include_inertia=True)
 
     print("Total equal-and-opposite vector:", total_vec)
     print("Field imbalance cost magnitude:", mag)
+    print("Total magnitude", sum_mag)
 
     # ---- Plot using your system ----
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
