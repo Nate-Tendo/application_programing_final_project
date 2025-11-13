@@ -130,15 +130,18 @@ def initialize_universe(scenario: str):
         Spacecraft(name ='spaceshipA', 
                    mass = 10, 
                    position = (0,0), 
-                   velocity = (0,0),
+                   velocity = (-1,1),
                    color = 'white',
-                   thrust=100.0)
-        Spacecraft(name ='spaceshipB', 
+                   thrust=10)
+        
+        Spacecraft(name ='target', 
                    mass = 10, 
-                   position = (10,0), 
-                   velocity = (1.0,0),
+                   position = (150,0), 
+                   velocity = (0,1),
                    color = 'green',
-                   thrust=0.0)
+                   radius = 5,
+                   thrust=0.0,
+                   is_target=True)
 
         bounds = Bounds(-150, 150, -150, 150)
 

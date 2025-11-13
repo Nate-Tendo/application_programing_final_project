@@ -2,7 +2,6 @@ import numpy as np
 from typing import List
 from dataclasses import dataclass
 
-
 GRAVITY_CONSTANT = 1
 EPSILON_GRAVITY = 1e-8
 
@@ -65,7 +64,7 @@ class Body:
     _index_counter = -999
     # TODO: Make it easier to initialize velocity at 0 (automatically convert 0 -> Vector2(0,0))
     
-    def __init__(self, name: str, mass: float, position: list, velocity = (0,0), color = 'blue', radius = 10, is_dynamically_updated = True):
+    def __init__(self, name: str, mass: float, position: tuple, velocity = (0,0), color = 'blue', radius = 10, is_dynamically_updated = True):
         self.name = name
         self.mass = mass # could add a density and size alternative instead of just mass
         self.position = np.array(position,dtype=float)
@@ -75,7 +74,7 @@ class Body:
         self.is_crashed = False
         self.is_dynamically_updated = is_dynamically_updated
         
-        # Check to ensure new body does not creat inteference!
+        # Ensure no overlapping bodies
         for element in Body._instances:
             distance_separation = np.linalg.norm((element.position - self.position))
             if distance_separation < (self.radius +  element.radius):
@@ -111,7 +110,7 @@ class Body:
 
     def gravitational_acceleration_from(self, other: 'Body') -> np.array:
         # Newton’s law of gravitation
-        distance_vector = other.position - self.position                                                 # Position of body from the perspective of self, these are numpy arrays
+        distance_vector = self.get_relative_position(other)                                                # Position of body from the perspective of self, these are numpy arrays
         distance_magnitude = np.linalg.norm(distance_vector)                                             # This will be a scalar
         acceleration_vector = GRAVITY_CONSTANT * other.mass * distance_vector / (distance_magnitude**3)  # Derived from m1a = Gm1m2/d^2, note how m1 cancels.
         return acceleration_vector    
@@ -122,6 +121,7 @@ class Body:
                     and (not isinstance(body, Spacecraft))), np.array([0,0]))
         return accel_vec
     
+    #  TODO: Find a way to simultaneously step bodies forward.
     def step_forward_dt(self, time_step = 0.1):
         # Use Velocity Verlet Numerical Integration
         total_accel = self.compute_total_current_acceleration_from_bodies()
@@ -133,7 +133,6 @@ class Body:
         return
 
 class Spacecraft(Body):
-
     _instances = []
     _index_counter = -999
 
@@ -181,7 +180,7 @@ class Spacecraft(Body):
             ship_thrust = self.propulsion_acceleration(self.max_thrust, self.orientation)
 
         elif self.navigation_strategy == 'counteract_gravity':
-            thrust_towards_target = self.propulsion_acceleration(self.max_thrust * .2, self.orientation)
+            thrust_towards_target = self.propulsion_acceleration(self.max_thrust, self.orientation)
 
             # Find direction toward target
             if np.linalg.norm(thrust_towards_target) > 0:
@@ -192,13 +191,14 @@ class Spacecraft(Body):
             # Compute gravity aligned with thrust
             gravity_aligned_with_thrust = np.dot(accel_from_planets, target_unit_vector) * target_unit_vector
 
-            ship_thrust = thrust_towards_target - (accel_from_planets - gravity_aligned_with_thrust)
+            ship_thrust = thrust_towards_target - (accel_from_planets)
 
             thrust_mag = np.linalg.norm(ship_thrust)
             if thrust_mag > self.max_thrust:
                 ship_thrust = ship_thrust / thrust_mag * self.max_thrust  # rescale
+                
         else:
-            ship_thrust=np.array((0,0))
+            ship_thrust = np.array([0.0,0.0])
 
         # Track fuel spent
         self.fuel_spent += (np.linalg.norm(ship_thrust) * self.mass) * time_step
