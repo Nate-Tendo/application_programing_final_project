@@ -1,4 +1,18 @@
-from classes import Body, Spacecraft, Bounds
+import numpy as np
+from classes import Body, Spacecraft, Bounds, GRAVITY_CONSTANT, EPSILON_GRAVITY
+
+def onebody_circular_orbit(r,G,m):
+    v = np.sqrt(G*m/r)
+    pass
+
+def sun_earth_moon_system():
+    pass
+
+def twobody_figeight():
+    pass
+
+def threebody_clover():
+    pass
 
 def initialize_universe(scenario: str):
     """
@@ -20,8 +34,8 @@ def initialize_universe(scenario: str):
     if scenario == '1': # Goal and spaceship is in two different corner
         Body(name= 'planet1', 
              mass = 2000, 
-             position = (0,0),       
-             velocity = (0,0), 
+             position = (2,0),       
+             velocity = (2,0), 
              color = 'green',   
              radius = 50, 
              is_dynamically_updated = False)
@@ -89,7 +103,8 @@ def initialize_universe(scenario: str):
              velocity = (1.2,1.2), 
              color = 'red',    
              radius = 50, 
-             is_dynamically_updated = True)
+             is_dynamically_updated = True,
+             velocity_vec = True)
 
         Spacecraft(name ='spaceshipA', 
                    mass = 1, 
@@ -98,7 +113,9 @@ def initialize_universe(scenario: str):
                    thrust = 50.0, 
                    color = 'white', 
                    radius = 10, 
-                   is_dynamically_updated = True)
+                   is_dynamically_updated = True,
+                   thrust_vec = True,
+                   velocity_vec = True)
         
         Spacecraft(name = 'target',    
                    mass = 0,  

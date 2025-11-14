@@ -64,7 +64,7 @@ def plot_universe(ax, window = 100):
     ax.set_facecolor('black')
     
     # Set Grid and Ticks
-    ax.grid(True, which='both', color='white', alpha=0.25, linewidth=0.8)
+    # ax.grid(True, which='both', color='white', alpha=0.25, linewidth=0.8)
     ax.set_xticklabels([])
     ax.set_yticklabels([])
     ax.set_frame_on(False)
@@ -144,83 +144,28 @@ def vector_field(bodies, window_size, spacing=100, max_acc=5e-4):
     
     return X, Y, U_disp, V_disp, Mag
 
+def draw_arrows(bodies):
+    for body in bodies:
+        if body.velocity_vec == True:
+            x = body.x
+            y = body.y
+            dx = body.vx
+            dy = body.vy
+            if body.vmag != 0:
+                ax.arrow(x, y, dx, dy, width = 20, head_width=100, head_length=100, fc='Red', ec='blue')
+    for body in bodies:
+        if isinstance(body,Spacecraft):
+            if body.thrust_vec == True:
+                x = body.x
+                y = body.y
+                dx = body.thrust[0]
+                dy = body.thrust[1]
+                if body.thrust_mag != 0:
+                    print('not zero!!!')
+                    ax.arrow(x, y, dx, dy, width = 20, head_width=100, head_length=100, fc='blue', ec='blue')
+
 if __name__ == "__main__":
     
-    # Nate's Run Section & Scenario Setup #
-    # ==================================== #
-    # Body._instances.clear()
-    # star1 = Body(name='star1', mass=12000, position=(110, 300), color='blue', radius=50, is_dynamically_updated = True)
-    # star2 = Body(name='star2', mass=100, position=(400, -200), velocity = (-3,.5), color='red', radius=40, is_dynamically_updated = True)
-    # star3 = Body(name='star3', mass=800,  position=(-350, 300), velocity = (0,2), color='yellow', radius=30, is_dynamically_updated = True)
-    # Body._instances.clear()
-    # star1 = Body(name='star1', mass=12000, position=(110, 300), color='blue', radius=50, is_dynamically_updated = True)
-    # star2 = Body(name='star2', mass=100, position=(400, -200), velocity = (-3,.5), color='red', radius=40, is_dynamically_updated = True)
-    # star3 = Body(name='star3', mass=800,  position=(-350, 300), velocity = (0,2), color='yellow', radius=30, is_dynamically_updated = True)
-
-    # shipA = Spacecraft(name='spaceshipA', mass=1, position=(-600, -400), velocity = (2,0), color='white', radius = 10, thrust=1, is_dynamically_updated = True)
-    # target = Spacecraft(name='target', mass=1, position=(600, 400), color='purple', radius = 50, is_target=True, is_dynamically_updated = False)
-    # shipA = Spacecraft(name='spaceshipA', mass=1, position=(-600, -400), velocity = (2,0), color='white', radius = 10, thrust=1, is_dynamically_updated = True)
-    # target = Spacecraft(name='target', mass=1, position=(600, 400), color='purple', radius = 50, is_target=True, is_dynamically_updated = False)
-
-    # shipA.navigation_strategy = 'thrust_towards_target'
-    # shipA.navigation_strategy = 'thrust_towards_target'
-
-    # bodies = Body._instances
-    # ships = Spacecraft._instances
-    # dt = .1  # time step
-    # bodies = Body._instances
-    # ships = Spacecraft._instances
-    # dt = .1  # time step
-
-    # # Example: line from bottom-left to top-right
-    # x_line = np.linspace(-600, 600, 40)
-    # y_line = np.linspace(-400, 400, 40)
-    # # Example: line from bottom-left to top-right
-    # x_line = np.linspace(-600, 600, 40)
-    # y_line = np.linspace(-400, 400, 40)
-
-    # total_vec, line_vecs, mag = compute_line_gravity_cost(x_line, y_line)
-    # total_vec, line_vecs, mag = compute_line_gravity_cost(x_line, y_line)
-
-    # print("Total equal-and-opposite vector:", total_vec)
-    # print("Field imbalance cost magnitude:", mag)
-    # print("Total equal-and-opposite vector:", total_vec)
-    # print("Field imbalance cost magnitude:", mag)
-
-    # # ---- Plot using your system ----
-    # fig0, ax0 = plt.subplots(figsize=(6, 6), facecolor='black')
-    # window = 800
-    # plot_universe(ax0, window=window)  # reuse your helper to draw the bodies and grid
-    # # X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
-    # # ---- Plot using your system ----
-    # fig0, ax0 = plt.subplots(figsize=(6, 6), facecolor='black')
-    # window = 800
-    # plot_universe(ax0, window=window)  # reuse your helper to draw the bodies and grid
-    # # X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
-
-    # # Initial Plotting
-    # body_circles = plot_universe(ax0,window)
-    # # q = ax0.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='viridis', pivot='tail',zorder=-1) #TODO: Figure out scale
-    # plt.title("Gravitational Field Vector Field", color='white')
-    # # Plot the line itself
-    # ax0.plot(x_line, y_line, color='white', linestyle='--', linewidth=1)
-    # # Initial Plotting
-    # body_circles = plot_universe(ax0,window)
-    # # q = ax0.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='viridis', pivot='tail',zorder=-1) #TODO: Figure out scale
-    # plt.title("Gravitational Field Vector Field", color='white')
-    # # Plot the line itself
-    # ax0.plot(x_line, y_line, color='white', linestyle='--', linewidth=1)
-
-    # # Plot the equal-and-opposite vectors as small arrows
-    # for (x, y, v) in zip(x_line, y_line, line_vecs):
-    #     ax0.arrow(x, y, v[0] * 50, v[1] * 50, head_width=10, color='cyan', alpha=0.7)
-    # # Plot the equal-and-opposite vectors as small arrows
-    # for (x, y, v) in zip(x_line, y_line, line_vecs):
-    #     ax0.arrow(x, y, v[0] * 50, v[1] * 50, head_width=10, color='cyan', alpha=0.7)
-
-    # ax0.set_title("Equal and Opposite Gravitational Field Along Line", color='white')
-    # ax0.set_title("Equal and Opposite Gravitational Field Along Line", color='white')
-
     # # SCENARIO SETUP #
     # # ================ #
     scenario = '3'
@@ -229,7 +174,8 @@ if __name__ == "__main__":
     bodies = Body._instances
     ships = Spacecraft._instances
     dt = 1.5
-    # ships[0].navigation_strategy = 'counteract_gravity'
+    ships[0].navigation_strategy = 'stay_put'
+    plotVectorField = True
 
     # PLOTTING #
     # ========== #
@@ -239,7 +185,9 @@ if __name__ == "__main__":
 
     # Initial Plotting
     body_circles = plot_universe(ax,window)
-    q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1) #TODO: Figure out scale
+    q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
+    
+    # draw_arrows([ships[0]])
     
     path_lines = []
     for i, ship in enumerate(ships):
@@ -273,9 +221,9 @@ if __name__ == "__main__":
             
         return artists
     
-    ani = animation.FuncAnimation(fig, update, frames=100, interval=1, blit=True)
+    ani = animation.FuncAnimation(fig, update, frames=500, interval=1, blit=True, repeat=False)
 
-    # ani.save('simple_path_test.gif', dpi=30, writer='pillow')
+    # ani.save('simple_path_test.gif', dpi=100, writer='pillow')
     plt.show() 
     print('Fuel Spent:',ships[0].fuel_spent)
     print('Fuel Spent:',ships[0].fuel_spent)
