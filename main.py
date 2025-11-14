@@ -173,7 +173,7 @@ if __name__ == "__main__":
     window=max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
     bodies = Body._instances
     ships = Spacecraft._instances
-    dt = 1.5
+    dt = 5
     ships[0].navigation_strategy = 'stay_put'
     plotVectorField = True
 
@@ -195,9 +195,7 @@ if __name__ == "__main__":
 
     def update(frame):
         # Always compute physics each frame
-        for body in bodies:
-            if body.is_dynamically_updated:
-                body.step_forward_dt(time_step = dt)
+        Body.timestep(dt)
            
         for i, path in enumerate(path_lines):
             path.set_data(ships[i].path[:,0],ships[i].path[:,1])
@@ -221,7 +219,7 @@ if __name__ == "__main__":
             
         return artists
     
-    ani = animation.FuncAnimation(fig, update, frames=500, interval=1, blit=True, repeat=False)
+    ani = animation.FuncAnimation(fig, update, frames=1000, interval=1, blit=True, repeat=False)
 
     # ani.save('simple_path_test.gif', dpi=100, writer='pillow')
     plt.show() 

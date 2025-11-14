@@ -109,7 +109,7 @@ def initialize_universe(scenario: str):
         Spacecraft(name ='spaceshipA', 
                    mass = 1, 
                    position = (-500,-500),   
-                   velocity = (-1.2,1.2), 
+                   velocity = (-10,10), 
                    thrust = 50.0, 
                    color = 'white', 
                    radius = 10, 
