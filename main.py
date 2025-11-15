@@ -1,13 +1,58 @@
+import numpy as np
+from typing import List
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.ticker import MultipleLocator
+from matplotlib.patches import Circle
+from matplotlib.collections import PatchCollection
 import math
-import time
-import numpy as np
-from classes import Universe, Spaceship, PhysicsEngine, TrajectoryPredictor
-from visualization import Renderer
-def plot_universe(axes):
-    
+from classes import Body, Spacecraft, GRAVITY_CONSTANT, EPSILON_GRAVITY
+from solar_system_config import initialize_universe
+
+def compute_line_gravity_cost(x_coords: np.ndarray, y_coords: np.ndarray):
+    """
+    Compute the gravitational 'cost' along a line defined by x,y coordinates.
+
+    Parameters
+    ----------
+    x_coords, y_coords : array-like
+        Arrays (or lists) of x and y coordinates along the line. Must have the same length.
+
+    Returns
+    -------
+    total_vector : np.array
+        Sum of all equal-and-opposite gravitational vectors (represents total imbalance).
+    line_vectors : list of np.array
+        The opposite-force vectors at each line point.
+    total_magnitude : float
+        The magnitude of the summed total_vector (scalar cost).
+    """
+
+    assert len(x_coords) == len(y_coords), "x_coords and y_coords must be the same length."
+
+    total_vector = np.array((0.0, 0.0),dtype=float)
+    line_vectors = []
+
+    for x, y in zip(x_coords, y_coords):
+        point = np.array((x, y),dtype=float)
+        total_gravity = np.array((0.0, 0.0),dtype=float)
+        for body in Body._instances:
+            direction = body.position - point
+            distance = np.linalg.norm(direction)
+            if distance < EPSILON_GRAVITY:
+                continue
+            g_force_mag = GRAVITY_CONSTANT * body.mass / (distance**2 + EPSILON_GRAVITY**2)
+            total_gravity += (direction / distance) * g_force_mag
+        # Equal and opposite (to make net zero)
+        opposite_force = total_gravity * -1
+        line_vectors.append(opposite_force)
+        total_vector += opposite_force
+
+    total_magnitude = np.linalg.norm(total_vector)
+
+    return total_vector, line_vectors, total_magnitude
+
+def plot_universe(ax, window = 100): 
     # TODO separate the static vs dyanmic bodies to prevent redraws
     colors_bodies = [body.color for body in Body._instances]
     body_circles = []
@@ -100,95 +145,140 @@ def vector_field(bodies, window_size, spacing=100, max_acc=5e-4):
     return X, Y, U_disp, V_disp, Mag
 
 if __name__ == "__main__":
-    ## Nate's Run Section
-        # Create environment
-    universe = Universe(num_bodies=4)
-    ship = Spaceship("Explorer", position=[-8e8, -8e8], velocity=[0, 0], color='white')
-    universe.add_ship(ship)
+    
+    # Nate's Run Section & Scenario Setup #
+    # ==================================== #
+    # Body._instances.clear()
+    # star1 = Body(name='star1', mass=12000, position=(110, 300), color='blue', radius=50, is_dynamically_updated = True)
+    # star2 = Body(name='star2', mass=100, position=(400, -200), velocity = (-3,.5), color='red', radius=40, is_dynamically_updated = True)
+    # star3 = Body(name='star3', mass=800,  position=(-350, 300), velocity = (0,2), color='yellow', radius=30, is_dynamically_updated = True)
+    # Body._instances.clear()
+    # star1 = Body(name='star1', mass=12000, position=(110, 300), color='blue', radius=50, is_dynamically_updated = True)
+    # star2 = Body(name='star2', mass=100, position=(400, -200), velocity = (-3,.5), color='red', radius=40, is_dynamically_updated = True)
+    # star3 = Body(name='star3', mass=800,  position=(-350, 300), velocity = (0,2), color='yellow', radius=30, is_dynamically_updated = True)
 
-    goal = np.array([8e8, 8e8])
-    predictor = TrajectoryPredictor(universe)
-    predicted_path = predictor.predict(ship, goal)
+    # shipA = Spacecraft(name='spaceshipA', mass=1, position=(-600, -400), velocity = (2,0), color='white', radius = 10, thrust=1, is_dynamically_updated = True)
+    # target = Spacecraft(name='target', mass=1, position=(600, 400), color='purple', radius = 50, is_target=True, is_dynamically_updated = False)
+    # shipA = Spacecraft(name='spaceshipA', mass=1, position=(-600, -400), velocity = (2,0), color='white', radius = 10, thrust=1, is_dynamically_updated = True)
+    # target = Spacecraft(name='target', mass=1, position=(600, 400), color='purple', radius = 50, is_target=True, is_dynamically_updated = False)
 
-    renderer = Renderer(universe)
+    # shipA.navigation_strategy = 'thrust_towards_target'
+    # shipA.navigation_strategy = 'thrust_towards_target'
 
-    dt = 1000
-    thrust_mag = 5e-3
+    # bodies = Body._instances
+    # ships = Spacecraft._instances
+    # dt = .1  # time step
+    # bodies = Body._instances
+    # ships = Spacecraft._instances
+    # dt = .1  # time step
 
-    for _ in range(20000):
-        to_goal = goal - ship.position
-        dist = np.linalg.norm(to_goal)
-        if dist < 2e7:
-            break
+    # # Example: line from bottom-left to top-right
+    # x_line = np.linspace(-600, 600, 40)
+    # y_line = np.linspace(-400, 400, 40)
+    # # Example: line from bottom-left to top-right
+    # x_line = np.linspace(-600, 600, 40)
+    # y_line = np.linspace(-400, 400, 40)
 
-        # Steering and thrust
-        dir_to_goal = to_goal / dist
-        thrust = thrust_mag * dir_to_goal
-        ship.thrust_on = True
-        ship.orientation = np.arctan2(dir_to_goal[1], dir_to_goal[0])
+    # total_vec, line_vecs, mag = compute_line_gravity_cost(x_line, y_line)
+    # total_vec, line_vecs, mag = compute_line_gravity_cost(x_line, y_line)
 
-        # Update physics
-        PhysicsEngine.integrate_rk4(ship, universe.bodies, dt, thrust)
-        ship.update_trail()
+    # print("Total equal-and-opposite vector:", total_vec)
+    # print("Field imbalance cost magnitude:", mag)
+    # print("Total equal-and-opposite vector:", total_vec)
+    # print("Field imbalance cost magnitude:", mag)
 
-        renderer.draw(predicted_path)
-        time.sleep(0.01)
+    # # ---- Plot using your system ----
+    # fig0, ax0 = plt.subplots(figsize=(6, 6), facecolor='black')
+    # window = 800
+    # plot_universe(ax0, window=window)  # reuse your helper to draw the bodies and grid
+    # # X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
+    # # ---- Plot using your system ----
+    # fig0, ax0 = plt.subplots(figsize=(6, 6), facecolor='black')
+    # window = 800
+    # plot_universe(ax0, window=window)  # reuse your helper to draw the bodies and grid
+    # # X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
 
-    ship.thrust_on = False
-    renderer.draw(predicted_path)
-    print("Arrived near goal.")
-    
-    # ## Isaac's Run Section
-    # Body._instances.clear() # Clears any bodies left over from previous run
-    # star1 = Body(name= 'star1', mass = 500, position = Vector2(0,0), velocity = Vector2(0,0),color = 'blue')
-    # star2 = Body(name= 'star2', mass = 500, position = Vector2(100,100), velocity = Vector2(0,0), color = 'red')
-    
-    # spaceshipA = Spacecraft(name ='spaceshipA', mass = 10, position = Vector2(100,0), velocity = Vector2(-1,0),color = 'white')
-    
-    # fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
-    # ax.set_facecolor('black')
-    # # ax.set_xlim(-50, 50)
-    # # ax.set_ylim(-50, 50)
-    # ax.grid(True, which='both', color='white', alpha=0.25, linewidth=0.8)
-    # ax.set_xticklabels([])
-    # ax.set_yticklabels([])
-    # ax.set_frame_on(False)
-    # ax.tick_params(tick1On=False)
-    # locator = MultipleLocator(10)
-    # ax.xaxis.set_major_locator(locator)
-    # ax.yaxis.set_major_locator(locator)
-    # ax.set_aspect('equal', adjustable='box')
+    # # Initial Plotting
+    # body_circles = plot_universe(ax0,window)
+    # # q = ax0.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='viridis', pivot='tail',zorder=-1) #TODO: Figure out scale
+    # plt.title("Gravitational Field Vector Field", color='white')
+    # # Plot the line itself
+    # ax0.plot(x_line, y_line, color='white', linestyle='--', linewidth=1)
+    # # Initial Plotting
+    # body_circles = plot_universe(ax0,window)
+    # # q = ax0.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='viridis', pivot='tail',zorder=-1) #TODO: Figure out scale
+    # plt.title("Gravitational Field Vector Field", color='white')
+    # # Plot the line itself
+    # ax0.plot(x_line, y_line, color='white', linestyle='--', linewidth=1)
 
-    # plt.tight_layout(pad=0.5)
+    # # Plot the equal-and-opposite vectors as small arrows
+    # for (x, y, v) in zip(x_line, y_line, line_vecs):
+    #     ax0.arrow(x, y, v[0] * 50, v[1] * 50, head_width=10, color='cyan', alpha=0.7)
+    # # Plot the equal-and-opposite vectors as small arrows
+    # for (x, y, v) in zip(x_line, y_line, line_vecs):
+    #     ax0.arrow(x, y, v[0] * 50, v[1] * 50, head_width=10, color='cyan', alpha=0.7)
+
+    # ax0.set_title("Equal and Opposite Gravitational Field Along Line", color='white')
+    # ax0.set_title("Equal and Opposite Gravitational Field Along Line", color='white')
+
+    # # SCENARIO SETUP #
+    # # ================ #
+    scenario = '1'
+    bounds = initialize_universe(scenario)
+    window=max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
+    bodies = Body._instances
+    ships = Spacecraft._instances
+    dt = .1
+    ships[0].navigation_strategy = 'potential_field'
+
+    # PLOTTING #
+    # ========== #
+    fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
+    # fig.canvas.mpl_connect('key_press_event', make_on_key(ships[0]))
+    X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
+
+    # Initial Plotting
+    body_circles = plot_universe(ax,window)
+    q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1) #TODO: Figure out scale
     
-    # ## ONE POSSIBLE WAY TO PLOT HTE UNIVERSE
-    # # plot_universe(ax)
-    # # for i in range(1000): spaceshipA.step_forward_dt(time_step = .1)
-    # # xs = [p.x for p in spaceshipA.path]
-    # # ys = [p.y for p in spaceshipA.path]
-    # # ax.plot(xs, ys,'b-o',markersize = 1)
+    path_lines = []
+    for i, ship in enumerate(ships):
+        path_lines.append(ax.plot([],[], color = ship.color, linewidth = 1, zorder = 0)[0])
+
+    def update(frame):
+        # Always compute physics each frame
+        for body in bodies:
+            if body.is_dynamically_updated:
+                body.step_forward_dt(time_step = dt)
+           
+        for i, path in enumerate(path_lines):
+            path.set_data(ships[i].path[:,0],ships[i].path[:,1])
+            if ships[i].is_crashed:
+                path.set_color('red')
+                for ship in ships:
+                    ship.is_dynamically_updated = False
+
+        # Update vector field if any bodies are dynamic
+        if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in bodies):   
+            X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
+            q.set_UVC(U, V)
+            q.set_array(M.flatten())
+
+        # Update body positions (if they move)
+        for circle, body in zip(body_circles, Body._instances):
+            if body.is_dynamically_updated:
+                circle.center = (body.x, body.y)
+        
+        artists = [*path_lines, *body_circles, q]
+            
+        return artists
     
+    ani = animation.FuncAnimation(fig, update, frames=100, interval=1, blit=True)
+
+    # ani.save('simple_path_test.gif', dpi=30, writer='pillow')
+    plt.show() 
+    print('Fuel Spent:',ships[0].fuel_spent)
+    print('Fuel Spent:',ships[0].fuel_spent)
     
-    # ## ANOTHER POSSIBLE WAY TO PLOT THE UNIVERSE
-    # scatter = plot_universe(ax)
-    # path_line, = ax.plot([], [], color='white', linewidth=1)
-    # trail_x, trail_y = [], []
+    ## Philip's Run Section
     
-    # def update(frame):
-    #     # Always compute physics each frame
-    #     spaceshipA.step_forward_dt(time_step=1)
-    
-    #     # Only update the plot every X frames
-    #     if frame % 1 == 0:
-    #         trail_x.append(spaceshipA.position.x)
-    #         trail_y.append(spaceshipA.position.y)
-    #         path_line.set_data(trail_x, trail_y)
-    #         scatter.set_offsets([[b.position.x, b.position.y] for b in Body._instances])
-    #     return (path_line, scatter)
-    
-    # ani = animation.FuncAnimation(fig, update, frames=2000, interval=5, blit=True)
-    # # plt.show()
-    
-    # # ani.save('gravity_sim_test_1.gif', dpi=80, writer='pillow') 
-    
-    # ## Philip's Run Section

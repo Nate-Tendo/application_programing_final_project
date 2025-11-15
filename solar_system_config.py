@@ -30,7 +30,7 @@ def initialize_universe(scenario: str):
                    mass = 1, 
                    position = (-500,-500),   
                    velocity = (-3,3), 
-                   thrust = 50.0, 
+                   thrust = 500.0, 
                    color = 'white', 
                    radius = 1, 
                    is_dynamically_updated = True)

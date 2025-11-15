@@ -169,7 +169,7 @@ class Spacecraft(Body):
         if self.navigation_strategy == 'potential_field':
             # parameters (tune these)
             k_att = 1.0      # attractive gain (accel per unit distance)
-            k_rep = 5000.0   # repulsive gain (scale of repulsion)
+            k_rep = 50000.0   # repulsive gain (scale of repulsion)
             d0 = 80.0        # influence radius of obstacles (any body closer than d0 repels)
             soft = 1e-6
 
@@ -199,10 +199,11 @@ class Spacecraft(Body):
                         continue
                     vec = pos - body.position
                     dist = np.linalg.norm(vec)
-                    if dist < EPSILON_GRAVITY:
+                    if dist < body.radius*2:
                         # If overlapping, create a large immediate repulsion
                         repulse = (vec + 1e-3) * k_rep * 10.0
                         rep_accel += repulse
+                        print(1)
                         continue
                     if dist <= d0:
                         # unit vector away from obstacle
@@ -210,10 +211,11 @@ class Spacecraft(Body):
                         # magnitude: k_rep * (1/d - 1/d0)
                         mag = k_rep * (1.0/dist - 1.0/d0)
                         rep_accel += u * mag
-
+                        print(2)
                 # Desired guidance acceleration (combine)
                 # Note: att_accel is proportional to distance; rep_accel pushes away strongly near obstacles.
                 desired_accel = att_accel + rep_accel
+                # print(f'body: {body.name}, Distance: {dist}, D0: {d0}, is repusling:{bool(dist < body.radius*1.1)}, isavoid:{bool(dist<=d0)}')
 
             # Convert desired_accel (m/s^2) to a thrust vector (force): F = m * a
             thrust_needed_vec = desired_accel * self.mass  # force vector
@@ -225,6 +227,7 @@ class Spacecraft(Body):
 
             # Finally convert thrust vector to acceleration from propulsion (same as thrust_vec / mass)
             ship_thrust_accel = thrust_vec / (self.mass if self.mass != 0 else 1.0)
+            print(ship_thrust_accel, desired_accel)
             # we keep track of fuel_spent by thrust magnitude later as before
             ship_thrust = thrust_vec  # keep the force vector for fuel accounting
 
