@@ -249,7 +249,7 @@ if __name__ == "__main__":
         # Always compute physics each frame
         for body in bodies:
             if body.is_dynamically_updated:
-                body.step_forward_dt(time_step = dt)
+                body.timestep(time_step = dt)
            
         for i, path in enumerate(path_lines):
             path.set_data(ships[i].path[:,0],ships[i].path[:,1])

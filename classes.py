@@ -15,12 +15,26 @@ class Bounds:
 def segment_circle_intersect(A, B, C, r): # This function definition written with ChatGPT's help as the math for line segment into a circle gets messy
     """
     Check if line segment AB intersects a circle with center C and radius r.
+
+    Parameters
+    ----------
+    A, B, C : array-like or numpy arrays of shape (2,)
+        Coordinates of the points.
+    r : float
+        Radius of the circle.
+
+    Returns
+    -------
+    bool
+        True if the segment intersects the circle, False otherwise.
     """
     A = np.array(A, dtype=float)
     B = np.array(B, dtype=float)
     C = np.array(C, dtype=float)
 
+    # Segment vector
     d = B - A
+    # Vector from circle center to segment start
     f = A - C
 
     a = np.dot(d, d)
@@ -30,12 +44,15 @@ def segment_circle_intersect(A, B, C, r): # This function definition written wit
     discriminant = b**2 - 4*a*c
 
     if discriminant < 0:
+        # No intersection
         return False
 
+    # Quadratic formula
     discriminant_sqrt = np.sqrt(discriminant)
     t1 = (-b - discriminant_sqrt) / (2*a)
     t2 = (-b + discriminant_sqrt) / (2*a)
 
+    # Check if either t is within the segment [0,1]
     if (0 <= t1 <= 1) or (0 <= t2 <= 1):
         return True
 
@@ -45,16 +62,21 @@ class Body:
     """Base class for planets, moons, stars, spacecraft."""
     _instances = []
     _index_counter = -999
+    # TODO: Make it easier to initialize velocity at 0 (automatically convert 0 -> Vector2(0,0))
     
-    def __init__(self, name: str, mass: float, position: tuple, velocity = (0,0), color = 'blue', radius = 10, is_dynamically_updated = True):
+    def __init__(self, name: str, mass: float, position: tuple, velocity = (0,0), color = 'blue', 
+                 radius = 10, is_dynamically_updated = True, velocity_vec = False):
         self.name = name
-        self.mass = mass
+        self.mass = mass # could add a density and size alternative instead of just mass
         self.position = np.array(position,dtype=float)
         self.velocity = np.array(velocity,dtype=float)
         self.color = color
         self.radius = radius
         self.is_crashed = False
         self.is_dynamically_updated = is_dynamically_updated
+        self.path = np.array([self.position.copy()])
+        
+        self.velocity_vec = velocity_vec
         
         # Ensure no overlapping bodies
         for element in Body._instances:
@@ -83,6 +105,10 @@ class Body:
     @property
     def vy(self):
         return self.velocity[1]
+    
+    @property
+    def vmag(self):
+        return np.linalg.norm(self.velocity)
          
     def get_relative_position(self, other: 'Body') -> np.array:
         return other.position - self.position
@@ -90,38 +116,89 @@ class Body:
     def get_relative_speed(self, other: 'Body') -> np.array:
         return other.velocity - self.velocity
 
-    def gravitational_acceleration_from(self, other: 'Body') -> np.array:
+    # Computes the gravitational acceleration from one body on another
+    def gravitational_acceleration_from(self, other: 'Body') -> np.array: 
         # Newton’s law of gravitation
-        distance_vector = self.get_relative_position(other)
-        distance_magnitude = np.linalg.norm(distance_vector)
-        if distance_magnitude < EPSILON_GRAVITY:
-            return np.array([0.0, 0.0])
-        acceleration_vector = GRAVITY_CONSTANT * other.mass * distance_vector / (distance_magnitude**3)
+        distance_vector = self.get_relative_position(other)                                                # Position of body from the perspective of self, these are numpy arrays
+        distance_magnitude = np.linalg.norm(distance_vector)                                             # This will be a scalar
+        acceleration_vector = GRAVITY_CONSTANT * other.mass * distance_vector / (distance_magnitude**3)  # Derived from m1a = Gm1m2/d^2, note how m1 cancels.
         return acceleration_vector    
     
-    def compute_total_current_acceleration_from_bodies(self):
+    # Computes the gravitational acceleration from all other bodies on one body
+    def g_from_bodies(self):
         accel_vec = sum((self.gravitational_acceleration_from(body)
                     for body in Body._instances if (body is not self) 
                     and (not isinstance(body, Spacecraft))), np.array([0,0]))
-        # Note: we intentionally exclude Spacecraft to avoid mutual gravity among ships for now
         return accel_vec
     
-    #  TODO: Find a way to simultaneously step bodies forward.
+    # Velocity Verlet Numerical Integration -  computes each step for all bodies to avoid violating conservation of momentum
     def step_forward_dt(self, time_step = 0.1):
-        # Use Velocity Verlet Numerical Integration
-        total_accel = self.compute_total_current_acceleration_from_bodies()
+        total_accel = self.g_from_bodies()
         new_position = self.position + self.velocity*time_step + (1/2)*total_accel*(time_step**2)
         self.position = new_position
-        new_total_accel_n_plus_1 = self.compute_total_current_acceleration_from_bodies()
+        new_total_accel_n_plus_1 = self.g_from_bodies()
         new_velocity = self.velocity + (1/2)*(total_accel + new_total_accel_n_plus_1)*time_step
         self.velocity = new_velocity
         return
+    
+    def timestep(self, time_step = 0.1):
+        dynamic_bodies = [body for body in Body._instances if body.is_dynamically_updated == True]
+        
+        # Using dictionaries to index off body name to avoid array index errors
 
+        grav_accel = {}
+        total_accel = {}
+        thrusts = {}
+        
+        # compute accelerations at t_n
+        for b in dynamic_bodies:
+            grav_accel[b] = b.g_from_bodies()
+            b.grav_accel = grav_accel[b]
+            if isinstance(b,Spacecraft):
+                thrusts[b] = b.thrust_ctrl_law(grav_accel[b])
+                b.thrust = thrusts[b]
+                b.thrust_mag = np.linalg.norm(thrusts[b])
+                b.fuel_spent += (np.linalg.norm(thrusts[b]) * b.mass) * time_step
+                total_accel[b] = grav_accel[b] + thrusts[b]
+            else:
+                total_accel[b] = grav_accel[b]
+        
+        # compute all new positions at t_n+1
+        for b in dynamic_bodies:
+            new_position = b.position + b.velocity*time_step + 0.5*total_accel[b]*(time_step**2)
+            b.position = new_position
+            
+            if isinstance(b,Spacecraft): # Checking for crash between ship and planet
+                for b_c in Body._instances:
+                    if b_c is b:
+                        continue
+                    if segment_circle_intersect(b.position, new_position, b.position, b.radius): #Remember that position.v is the position vector!
+                        b.is_crashed = True
+                        print(f"Crash between {self.name} and {b.name}")
+        
+        new_total_accel = {}
+                    
+        # compute all new accelerations a t_n+1
+        for b in dynamic_bodies:
+            new_grav_accel = b.g_from_bodies()
+            if isinstance(b,Spacecraft):
+                new_thrust = b.thrust_ctrl_law(new_grav_accel)
+                new_total_accel[b] = new_grav_accel + new_thrust
+            else:
+                new_total_accel[b] = new_grav_accel 
+                
+        # compute all new velocities at t_n+1 
+        for b in dynamic_bodies:
+            b.velocity = b.velocity + (1/2)*(total_accel[b] + new_total_accel[b])*time_step
+            b.path = np.append(b.path, [b.position.copy()], axis=0)
+            
 class Spacecraft(Body):
     _instances = []
     _index_counter = -999
 
-    def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False):
+    def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, 
+                 orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False,
+                 velocity_vec = False, thrust_vec = False, path_follow = None):
         super().__init__(name, mass, position, velocity, color, radius, is_dynamically_updated)
         self.max_thrust = thrust
         self.orientation = orientation  # radians
@@ -129,7 +206,23 @@ class Spacecraft(Body):
         self.list_boosters_on = {'up': 0,'down':0, 'left': 0, 'right': 0}
         self.fuel_spent = 0.0
         self.is_target = is_target
-        self.navigation_strategy = 'none'  
+        self.navigation_strategy = 'none' # control law
+        self.desired_path = None
+        
+        
+        self.ics = (self.position.copy(),self.velocity.copy()) # initial conditions
+        self.i_p = self.position.copy() # initial position
+        self.i_v = self.velocity.copy() # initial velocity vector
+
+
+        self.velocity_vec = velocity_vec
+        self.thrust_vec = thrust_vec
+        self.thrust = np.array([0.0, 0.0])
+        self.thrust_mag = np.linalg.norm(self.thrust)
+        
+        # For debugging and plotting
+
+
 
         if self.name == 'target' and not self.is_target:
             raise ValueError("Spacecraft named 'target' must have is_target=True")
@@ -149,32 +242,24 @@ class Spacecraft(Body):
         ay = thrust_magnitude * np.sin(thrust_direction) / self.mass
         return np.array([ax,ay])
     
-    def step_forward_dt(self, time_step = 0.1):
-        
-        # Update orientation toward target for convenience (used by some strategies)
-        for ship in Spacecraft._instances:
-            if ship.is_target and ship is not self:
-                self.orientation = np.arctan2(
-                    ship.position[1] - self.position[1],
-                    ship.position[0] - self.position[0]
-                )
-
-        # gravitational acceleration from bodies (non-spacecraft)
-        accel_from_planets = self.compute_total_current_acceleration_from_bodies()
-
-        # ----- Potential Field Navigation Implementation -----
-        # This computes a guidance acceleration (desired_accel) using an attractive
-        # component toward the target and repulsive components away from bodies.
-        ship_thrust_accel = np.array([0.0,0.0])  # default (acceleration due to thrust)
+    def thrust_ctrl_law(self,accel_from_planets):
+        if self.navigation_strategy == 'stay_put':
+            ground = self.i_p
+            e = self.position - ground
+            e_dot = self.velocity - 0
+            
+            K_p = 0.2
+            K_d = 0.3
+            
+            ship_thrust = -accel_from_planets - K_p * e - K_d * e_dot
         if self.navigation_strategy == 'potential_field':
-            # parameters (tune these)
             k_att = 1.0      # attractive gain (accel per unit distance)
-            k_rep = 50000.0   # repulsive gain (scale of repulsion)
-            d0 = 80.0        # influence radius of obstacles (any body closer than d0 repels)
+            k_rep = 5.0   # repulsive gain (scale of repulsion)
+            d0 = 50.0        # influence radius of obstacles (any body closer than d0 repels)
             soft = 1e-6
 
-            # find target body (unique)
             target = None
+            # finding the target
             for ship in Spacecraft._instances:
                 if ship.is_target and ship is not self:
                     target = ship
@@ -182,14 +267,15 @@ class Spacecraft(Body):
 
             if target is None:
                 desired_accel = np.array([0.0, 0.0])
+                print('No Target Found')
             else:
-                # Attractive acceleration (pull towards target)
+                # Attractive acceleration
                 pos = self.position
                 dir_to_goal = target.position - pos
                 dist_to_goal = np.linalg.norm(dir_to_goal) + soft
                 att_accel = k_att * dir_to_goal  # direction * distance * k_att
 
-                # Repulsive acceleration (push away from each body inside d0)
+                # Repulsive acceleration 
                 rep_accel = np.array([0.0, 0.0])
                 for body in Body._instances:
                     if body is self:
@@ -199,11 +285,9 @@ class Spacecraft(Body):
                         continue
                     vec = pos - body.position
                     dist = np.linalg.norm(vec)
-                    if dist < body.radius*2:
-                        # If overlapping, create a large immediate repulsion
+                    if dist < (body.radius * 1.1): # If overlapping, create a large immediate repulsion
                         repulse = (vec + 1e-3) * k_rep * 10.0
                         rep_accel += repulse
-                        print(1)
                         continue
                     if dist <= d0:
                         # unit vector away from obstacle
@@ -211,11 +295,9 @@ class Spacecraft(Body):
                         # magnitude: k_rep * (1/d - 1/d0)
                         mag = k_rep * (1.0/dist - 1.0/d0)
                         rep_accel += u * mag
-                        print(2)
+
                 # Desired guidance acceleration (combine)
-                # Note: att_accel is proportional to distance; rep_accel pushes away strongly near obstacles.
                 desired_accel = att_accel + rep_accel
-                # print(f'body: {body.name}, Distance: {dist}, D0: {d0}, is repusling:{bool(dist < body.radius*1.1)}, isavoid:{bool(dist<=d0)}')
 
             # Convert desired_accel (m/s^2) to a thrust vector (force): F = m * a
             thrust_needed_vec = desired_accel * self.mass  # force vector
@@ -225,71 +307,68 @@ class Spacecraft(Body):
             else:
                 thrust_vec = thrust_needed_vec
 
-            # Finally convert thrust vector to acceleration from propulsion (same as thrust_vec / mass)
+            # Finally convert thrust vector to acceleration from propulsion 
             ship_thrust_accel = thrust_vec / (self.mass if self.mass != 0 else 1.0)
-            print(ship_thrust_accel, desired_accel)
-            # we keep track of fuel_spent by thrust magnitude later as before
             ship_thrust = thrust_vec  # keep the force vector for fuel accounting
-
-        # ----- Existing navigation modes (left unchanged) -----
         elif self.navigation_strategy == 'thrust_towards_target':
-            ship_thrust = self.propulsion_acceleration(self.max_thrust, self.orientation) * self.mass  # convert accel->force
-
-            # Here propulsion_acceleration returns acceleration per 1 unit thrust magnitude.
-            # We want to use the full max_thrust in direction self.orientation, so convert to force:
-            # propulsion_acceleration returns ax = thrust_mag * cos(...) / mass, so multiply by mass to get force vector
-            # but simpler approach used above.
-
-            # convert to acceleration
-            ship_thrust_accel = ship_thrust / self.mass if self.mass != 0 else np.array([0.0,0.0])
-
+            ship_thrust = self.propulsion_acceleration(self.max_thrust, self.orientation)
         elif self.navigation_strategy == 'counteract_gravity':
-            thrust_towards_target = self.propulsion_acceleration(self.max_thrust, self.orientation) * self.mass
-            # Find direction toward target
-            if np.linalg.norm(thrust_towards_target) > 0:
-                target_unit_vector = thrust_towards_target / np.linalg.norm(thrust_towards_target)
-            else:
-                target_unit_vector = np.array([0,0])
-
-            gravity_aligned_with_thrust = np.dot(accel_from_planets, target_unit_vector) * target_unit_vector
-            ship_thrust_vec = thrust_towards_target - (accel_from_planets * self.mass)
-            thrust_mag = np.linalg.norm(ship_thrust_vec)
-            if thrust_mag > self.max_thrust:
-                ship_thrust_vec = ship_thrust_vec / thrust_mag * self.max_thrust
-            ship_thrust_accel = ship_thrust_vec / self.mass if self.mass != 0 else np.array([0.0,0.0])
-
+            pass
+            # Fill this in
+        elif self.navigation_strategy == 'path-follow':
+            
+            pass
+            # fill this in
         else:
-            # default: no thrust
             ship_thrust = np.array([0.0,0.0])
-            ship_thrust_accel = np.array([0.0,0.0])
-
-        # Track fuel spent:
-        # If we have a thrust vector in force-units (N) we approximate fuel use = |thrust| * time
-        # Earlier you tracked fuel as (norm(ship_thrust) * self.mass) * time_step; keep similar accounting.
-        if 'ship_thrust' in locals():
-            fuel_term = np.linalg.norm(ship_thrust) * time_step
-        else:
-            # ship_thrust might not have been set in potential_field branch; compute from accel
-            fuel_term = np.linalg.norm(ship_thrust_accel) * self.mass * time_step
-
-        self.fuel_spent += fuel_term
-
-        # Apply total acceleration (gravity + thrust-accel)
-        total_accel = accel_from_planets + ship_thrust_accel
-        new_position = self.position + self.velocity*time_step + 0.5*total_accel*(time_step**2)
+        thrust_mag = np.linalg.norm(ship_thrust)
+        if thrust_mag > self.max_thrust:
+            ship_thrust = self.max_thrust
+        return ship_thrust
+    
+    # def step_forward_dt(self, time_step = 0.1):
         
-        # Collision detection along the straight-line motion
-        for body in Body._instances:
-            if body is self:
-                continue
-            if segment_circle_intersect(self.position, new_position, body.position, body.radius):
-                self.is_crashed = True
-                print(f"Crash between {self.name} and {body.name}")
-        
-        self.position = new_position
-        new_total_accel_n_plus_1 = self.compute_total_current_acceleration_from_bodies()
-        new_velocity = self.velocity + (1/2)*(total_accel + new_total_accel_n_plus_1)*time_step
-        self.velocity = new_velocity
-        self.path = np.append(self.path, [self.position.copy()], axis=0)
+    #     # Use Velocity Verlet Numerical Integration
+    #     for ship in Spacecraft._instances:
+    #         if ship.is_target and ship is not self:
+    #             self.orientation = np.arctan2(
+    #                 ship.position[1] - self.position[1],
+    #                 ship.position[0] - self.position[0]
+    #             )
 
-        return None
+    #     accel_from_planets = self.compute_total_current_acceleration_from_bodies()
+    #     self.accel_from_planets = accel_from_planets
+
+    #     thrust = self.thrust_ctrl_law(accel_from_planets)
+
+    #     # Track fuel spent
+    #     self.fuel_spent += (np.linalg.norm(thrust) * self.mass) * time_step
+
+    #     # Apply total acceleration (gravity + thrust)
+    #     total_accel = accel_from_planets + thrust
+    #     self.total_accel = total_accel
+    #     new_position = self.position + self.velocity*time_step + 0.5*total_accel*(time_step**2)
+        
+    #     # BEFORE WE SET THSI NEW POSITION, WE WANT TO CHECK IF WE'VE HIT ANYTHING..
+    #     # Taking some inspiration from Chat-GPT, but this is going to be quite computationally expensive...
+    #     for body in Body._instances:
+    #         if body is self:
+    #             continue
+    #         if segment_circle_intersect(self.position, new_position, body.position, body.radius): #Remember that position.v is the position vector!
+    #             self.is_crashed = True
+    #             print(f"Crash between {self.name} and {body.name}")
+        
+    #     # For debugging and plotting
+        
+    #     self.thrust = thrust
+    #     self.thrust_mag = np.linalg.norm(thrust)
+    #     self.position = new_position
+        
+    #     new_accel_from_planets = self.compute_total_current_acceleration_from_bodies()
+        
+    #     new_total_accel_n_plus_1 = new_accel_from_planets + thrust
+    #     new_velocity = self.velocity + (1/2)*(total_accel + new_total_accel_n_plus_1)*time_step
+    #     self.velocity = new_velocity
+    #     self.path = np.append(self.path, [self.position.copy()], axis=0)
+
+    #     return None
