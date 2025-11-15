@@ -28,11 +28,25 @@ spaceship.update()
 bodies.update()
 
 
-A. How is our animation process going to work? How will we step through time?
-B. How will we plot vector fields?
-C. How will we numerically solve the spaceship path?
-D. How will we implement thrust? (Angle and magnitude)
-D. Optimization
+1. How is our animation process going to work? How will we step through time?
+2. How will we plot vector fields?
+3. How will we numerically solve the spaceship path?
+4. How will we implement thrust? (Angle and magnitude)
+5. Optimization
     i. Make cost function
     ii. Parameterize path
     iii. Update cost function stuff
+
+
+Vector field
+1. Initialize objects
+2. 
+
+## Isaac's Most Recent Notes
+We're moving onto the path planning portion of the project, here's where it get's interesting...
+
+Essentially, we'll need to do some interesting GNC stuff
+
+I think these are the things we'll need to start digging into!
+
+https://github.com/AtsushiSakai/PythonRobotics

@@ -9,17 +9,95 @@ from visualization import Renderer
 def plot_universe(axes):
     
     # TODO separate the static vs dyanmic bodies to prevent redraws
-    
-    x_coord_bodies = [body.position.x for body in Body._instances]
-    y_coord_bodies = [body.position.y for body in Body._instances]
-    sizes_bodies = [body.mass for body in Body._instances]
     colors_bodies = [body.color for body in Body._instances]
-    scatter_bodies = ax.scatter(x_coord_bodies,y_coord_bodies,s = sizes_bodies, c = colors_bodies)
-    ax.set(xlim = [min(x_coord_bodies) - 25, max(x_coord_bodies) + 25],
-           ylim = [min(y_coord_bodies) - 25, max(y_coord_bodies) + 25],
-           aspect = 'equal')
+    body_circles = []
+    for body in Body._instances:
+        circle = plt.Circle((body.x, body.y), body.radius, color=body.color)
+        ax.add_patch(circle)
+        body_circles.append(circle)
+    
+    ax.set_facecolor('black')
+    
+    # Set Grid and Ticks
+    ax.grid(True, which='both', color='white', alpha=0.25, linewidth=0.8)
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.set_frame_on(False)
+    ax.tick_params(tick1On=False)
+    locator = MultipleLocator(window/10)
+    ax.xaxis.set_major_locator(locator)
+    ax.yaxis.set_major_locator(locator)
+    
+    # Limits and Padding
+    ax.set_aspect('equal', adjustable='box')
+    ax.set(xlim = [-window,window],ylim=[-window,window]) # TODO set max environment in a more intuitive way
+    plt.tight_layout(pad=0.5)
 
-    return scatter_bodies
+    return body_circles
+
+# def make_on_key(ship):
+#     def on_key(event):
+        
+#         if event.key == 'up':
+#             ship.list_boosters_on['up'] = 1
+    
+#         elif event.key == 'down':
+#             ship.list_boosters_on['down'] = 1
+    
+#         elif event.key == 'right':
+#             ship.list_boosters_on['right'] = 1
+    
+#         elif event.key == 'left':
+#             ship.list_boosters_on['left'] = 1
+#     return on_key
+
+def vector_field(bodies, window_size, spacing=100, max_acc=5e-4):
+    """
+    Compute a 2D vector field of gravitational acceleration from bodies.
+    
+    Parameters:
+        bodies : list of Body objects
+        window_size : half-width/height of the grid
+        spacing : spacing between grid points
+        max_acc : maximum acceleration magnitude for visualization
+    
+    Returns:
+        X, Y : meshgrid coordinates
+        U_disp, V_disp : unit direction vectors for plotting
+        Mag : capped magnitude for colormap
+    """
+    x = np.arange(-window_size, window_size + spacing, spacing)
+    y = np.arange(-window_size, window_size + spacing, spacing)
+    X, Y = np.meshgrid(x, y)
+    
+    U = np.zeros_like(X, dtype=float)
+    V = np.zeros_like(Y, dtype=float)
+    
+    soft = 1e-3  # small softening to prevent division by zero
+    
+    for body in bodies:
+        if not isinstance(body, Spacecraft):
+            b_x, b_y = body.x, body.y
+            m = body.mass
+            r_x = b_x - X
+            r_y = b_y - Y
+            mag_sq = np.sqrt(r_x**2 + r_y**2 + soft**2)
+            
+            acc_mag = GRAVITY_CONSTANT * m / (mag_sq**3)
+            
+            # Cap the magnitude
+            acc_mag = np.minimum(acc_mag, max_acc)
+            
+            U += acc_mag * r_x
+            V += acc_mag * r_y
+    
+    # Compute final magnitudes and unit vectors
+    Mag = np.hypot(U, V)
+    U_disp = np.nan_to_num(U / (Mag + soft))
+    V_disp = np.nan_to_num(V / (Mag + soft))
+    Mag = np.nan_to_num(Mag)
+    
+    return X, Y, U_disp, V_disp, Mag
 
 if __name__ == "__main__":
     ## Nate's Run Section
