@@ -34,8 +34,8 @@ def initialize_universe(scenario: str):
     if scenario == '1': # Goal and spaceship is in two different corner
         Body(name= 'planet1', 
              mass = 2000, 
-             position = (2,0),       
-             velocity = (2,0), 
+             position = (0,0),       
+             velocity = (0,0), 
              color = 'green',   
              radius = 50, 
              is_dynamically_updated = False)
@@ -43,8 +43,8 @@ def initialize_universe(scenario: str):
         Spacecraft(name ='spaceshipA', 
                    mass = 1, 
                    position = (-500,-500),   
-                   velocity = (-3,3), 
-                   thrust = 50.0, 
+                   velocity = (-30,30), 
+                   thrust = 5.0, 
                    color = 'white', 
                    radius = 1, 
                    is_dynamically_updated = True)
@@ -73,7 +73,7 @@ def initialize_universe(scenario: str):
                    mass = 1, 
                    position = (-500,-500),   
                    velocity = (-1.2,1.2), 
-                   thrust = 50.0, 
+                   thrust = .05, 
                    color = 'white', 
                    radius = 10, 
                    is_dynamically_updated = True)
@@ -109,8 +109,8 @@ def initialize_universe(scenario: str):
         Spacecraft(name ='spaceshipA', 
                    mass = 1, 
                    position = (-500,-500),   
-                   velocity = (-10,10), 
-                   thrust = 50.0, 
+                   velocity = (-1,1), 
+                   thrust = 50000.0, 
                    color = 'white', 
                    radius = 10, 
                    is_dynamically_updated = True,

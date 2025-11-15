@@ -127,7 +127,7 @@ def vector_field(bodies, window_size, spacing=100, max_acc=5e-4):
             r_x = b_x - X
             r_y = b_y - Y
             mag_sq = np.sqrt(r_x**2 + r_y**2 + soft**2)
-            
+
             acc_mag = GRAVITY_CONSTANT * m / (mag_sq**3)
             
             # Cap the magnitude
@@ -143,6 +143,54 @@ def vector_field(bodies, window_size, spacing=100, max_acc=5e-4):
     Mag = np.nan_to_num(Mag)
     
     return X, Y, U_disp, V_disp, Mag
+
+def vector_field_fast(bodies, window_size, spacing=100, max_acc=5e-4):
+    # Build grids
+    x = np.arange(-window_size, window_size + spacing, spacing)
+    y = np.arange(-window_size, window_size + spacing, spacing)
+    X, Y = np.meshgrid(x, y)  # shape (H, W)
+    
+    soft = 1e-3
+
+    # Extract non-spacecraft bodies in vectorized form
+    pos = np.array([[b.x, b.y] for b in bodies if not isinstance(b, Spacecraft)], dtype=float)
+    mass = np.array([b.mass for b in bodies if not isinstance(b, Spacecraft)], dtype=float)
+
+    if len(pos) == 0:
+        # No bodies
+        U_disp = np.zeros_like(X)
+        V_disp = np.zeros_like(Y)
+        Mag = np.zeros_like(X)
+        return X, Y, U_disp, V_disp, Mag
+    
+    # Broadcast grid to bodies: shape (N, H, W)
+    r_x = pos[:, 0][:, None, None] - X
+    r_y = pos[:, 1][:, None, None] - Y
+    
+    # Compute distance
+    dist_sq = r_x**2 + r_y**2 + soft**2
+    dist = np.sqrt(dist_sq)
+    
+    # Inverse-cube term
+    inv_cube = GRAVITY_CONSTANT * mass[:, None, None] / (dist**3)
+    
+    # Cap magnitude
+    inv_cube = np.minimum(inv_cube, max_acc)
+    
+    # Sum acceleration across all bodies (vectorized!)
+    U = np.sum(inv_cube * r_x, axis=0)
+    V = np.sum(inv_cube * r_y, axis=0)
+
+    # Normalize for display
+    Mag = np.hypot(U, V)
+    denom = Mag + soft
+
+    U_disp = U / denom
+    V_disp = V / denom
+    Mag = np.nan_to_num(Mag)
+
+    return X, Y, U_disp, V_disp, Mag
+
 
 def draw_arrows(bodies):
     for body in bodies:
@@ -168,20 +216,20 @@ if __name__ == "__main__":
     
     # # SCENARIO SETUP #
     # # ================ #
-    scenario = '3'
+    scenario = '2'
     bounds = initialize_universe(scenario)
-    window=max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
+    window= max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
     bodies = Body._instances
     ships = Spacecraft._instances
-    dt = 5
-    ships[0].navigation_strategy = 'stay_put'
+    dt = 2
+    ships[0].navigation_strategy = 'thrust_towards_target'
     plotVectorField = True
 
     # PLOTTING #
     # ========== #
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
     # fig.canvas.mpl_connect('key_press_event', make_on_key(ships[0]))
-    X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
+    X,Y,U,V,M = vector_field(bodies, window, spacing = window/6)
 
     # Initial Plotting
     body_circles = plot_universe(ax,window)
@@ -205,25 +253,22 @@ if __name__ == "__main__":
                     ship.is_dynamically_updated = False
 
         # Update vector field if any bodies are dynamic
-        if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in bodies):   
-            X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
-            q.set_UVC(U, V)
-            q.set_array(M.flatten())
+        X,Y,U,V,M = vector_field(bodies, window, spacing = window/6)
+        q.set_UVC(U, V)
+        q.set_array(M.flatten())
 
         # Update body positions (if they move)
         for circle, body in zip(body_circles, Body._instances):
-            if body.is_dynamically_updated:
                 circle.center = (body.x, body.y)
         
         artists = [*path_lines, *body_circles, q]
             
         return artists
     
-    ani = animation.FuncAnimation(fig, update, frames=1000, interval=1, blit=True, repeat=False)
-
+    ani = animation.FuncAnimation(fig, update, frames=100, interval=1, blit=True)
+    # update(0)
     # ani.save('simple_path_test.gif', dpi=100, writer='pillow')
-    plt.show() 
-    print('Fuel Spent:',ships[0].fuel_spent)
+    # plt.show() 
     print('Fuel Spent:',ships[0].fuel_spent)
     
     ## Philip's Run Section
