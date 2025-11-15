@@ -8,7 +8,7 @@ from matplotlib.collections import PatchCollection
 import math
 from classes import Body, Spacecraft, GRAVITY_CONSTANT, EPSILON_GRAVITY
 from solar_system_config import initialize_universe
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline, splev
 
 def compute_line_gravity_cost(x_coords: np.ndarray, y_coords: np.ndarray):
     """
@@ -74,8 +74,6 @@ def plot_universe(ax, window = 100):
         ax.add_patch(circle)
         body_circles.append(circle)
     
-
-    
     # Limits and Padding
     ax.set_aspect('equal', adjustable='box')
     ax.set(xlim = [-window,window],ylim=[-window,window]) # TODO set max environment in a more intuitive way
@@ -83,21 +81,21 @@ def plot_universe(ax, window = 100):
 
     return body_circles
 
-# def make_on_key(ship):
-#     def on_key(event):
+def make_on_key(ship):
+    def on_key(event):
         
-#         if event.key == 'up':
-#             ship.list_boosters_on['up'] = 1
+        if event.key == 'up':
+            ship.list_boosters_on['up'] = 1
     
-#         elif event.key == 'down':
-#             ship.list_boosters_on['down'] = 1
+        elif event.key == 'down':
+            ship.list_boosters_on['down'] = 1
     
-#         elif event.key == 'right':
-#             ship.list_boosters_on['right'] = 1
+        elif event.key == 'right':
+            ship.list_boosters_on['right'] = 1
     
-#         elif event.key == 'left':
-#             ship.list_boosters_on['left'] = 1
-#     return on_key
+        elif event.key == 'left':
+            ship.list_boosters_on['left'] = 1
+    return on_key
 
 def vector_field(bodies, window_size, spacing=100, max_acc=5e-4):
     """
@@ -173,17 +171,23 @@ def f_1(r):
     y = 50*(r**2 - 2*r + 3)
     return x,y
 
-def line(start_pt: tuple, end_pt: tuple, precision=1000, lw=5):
+
+def parametric_func(f,r,lw=3):
+    x,y = f(r)
+    ax.plot(x,y,zorder=4,linewidth=lw,linestyle='--')
+
+def line(start_pt: tuple, end_pt: tuple, precision=1000, lw=3):
     x = np.linspace(start_pt[0], end_pt[0], precision)
     y = np.linspace(start_pt[1], end_pt[1], precision)
     np.stack((x,y))
-    ax.plot(x,y,linewidth=lw)
+    ax.plot(x,y,zorder=4,linestyle='--',linewidth=lw)
     return x,y
     
-def points_spline(x,y,precision=1000, lw=5):
+def points_spline(x,y,precision=1000, lw=2):
     spl = CubicSpline(x, y)
     x_new = np.linspace(min(x),max(x),precision)
     plt.plot(x_new,spl(x_new))
+    # dxdt, dydt = splev(ti, tck, der=1)
 
 if __name__ == "__main__":
     
@@ -193,8 +197,20 @@ if __name__ == "__main__":
     bounds = initialize_universe(scenario)
     window=max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
     bodies = Body._instances
+    
+    '''
+    ## REMOVE THIS LATER
+    '''
+    ship = Spacecraft(name ='spaceshipA', 
+               mass = 10, 
+               position = (-500,-500), 
+               velocity = (-1,1),
+               color = 'red',
+               radius = 20,
+               thrust=0.07)
+    
     ships = Spacecraft._instances
-    dt = 1.5
+    dt = 10
     if ships:
         ships[0].navigation_strategy = 'stay_put'
     plotVectorField = True
@@ -209,18 +225,30 @@ if __name__ == "__main__":
     body_circles = plot_universe(ax,window)
     q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
     
+    
     line((-600,-600),(-400,200),10000)
+    # parametric_func(f_1,r)
     
     # draw_arrows([ships[0]])
     
     path_lines = []
     for i, ship in enumerate(ships):
-        path_lines.append(ax.plot([],[], color = ship.color, linewidth = 1, zorder = 0)[0])
+        path_lines.append(ax.plot([],[], color = 'white', linewidth = 1, zorder = 0)[0])
 
     def update(frame):
         # Always compute physics each frame
         Body.timestep(dt)
-           
+        
+        # ========================================================
+        '''
+        DEPRECATED: REMOVE LATER, and uncomment above
+        '''
+        # for body in bodies:
+        #     if body.is_dynamically_updated:
+        #         body.step_forward_dt(time_step = dt)
+        # ========================================================
+
+        
         for i, path in enumerate(path_lines):
             path.set_data(ships[i].path[:,0],ships[i].path[:,1])
             if ships[i].is_crashed:
@@ -228,7 +256,7 @@ if __name__ == "__main__":
                 for ship in ships:
                     ship.is_dynamically_updated = False
         
-        if frame % 10 == 0:
+        if frame % 1 == 0:
             # Update vector field if any bodies are dynamic
             if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in bodies):   
                 X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
@@ -240,9 +268,9 @@ if __name__ == "__main__":
                 if body.is_dynamically_updated:
                     circle.center = (body.x, body.y)
             
-            artists = [*path_lines, *body_circles, q]
+            artists = [*path_lines, *body_circles, q]          
                 
-            return artists
+        return artists
     
     ani = animation.FuncAnimation(fig, update, frames=1000, interval=1, blit=True, repeat=True)
 

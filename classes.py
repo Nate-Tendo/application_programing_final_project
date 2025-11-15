@@ -131,17 +131,9 @@ class Body:
                     and (not isinstance(body, Spacecraft))), np.array([0,0]))
         return accel_vec
     
-    # Velocity Verlet Numerical Integration -  computes each step for all bodies to avoid violating conservation of momentum
-    def step_forward_dt(self, time_step = 0.1):
-        total_accel = self.compute_total_current_acceleration_from_bodies()
-        new_position = self.position + self.velocity*time_step + (1/2)*total_accel*(time_step**2)
-        self.position = new_position
-        new_total_accel_n_plus_1 = self.compute_total_current_acceleration_from_bodies()
-        new_velocity = self.velocity + (1/2)*(total_accel + new_total_accel_n_plus_1)*time_step
-        self.velocity = new_velocity
-        return
-    
-    def timestep(self, time_step = 0.1):
+    # Velocity Verlet Numerical Integration -  computes each step for all bodies to avoid violating conservation of momentum   
+    # @staticmethod
+    def timestep(self, time_step = 1):
         dynamic_bodies = [body for body in Body._instances if body.is_dynamically_updated == True]
         
         # Using dictionaries to index off body name to avoid array index errors
@@ -191,6 +183,23 @@ class Body:
         for b in dynamic_bodies:
             b.velocity = b.velocity + (1/2)*(total_accel[b] + new_total_accel[b])*time_step
             b.path = np.append(b.path, [b.position.copy()], axis=0)
+    
+# ===============================================================================================    
+    '''
+    DEPRECATED: FOR TEST PURPOSES ONLY
+    '''
+    def step_forward_dt(self, time_step = 0.1):
+        # Use Velocity Verlet Numerical Integration
+        total_accel = self.g_from_bodies()
+        new_position = self.position + self.velocity*time_step + (1/2)*total_accel*(time_step**2)
+        self.position = new_position
+        new_total_accel_n_plus_1 = self.g_from_bodies()
+        new_velocity = self.velocity + (1/2)*(total_accel + new_total_accel_n_plus_1)*time_step
+        self.velocity = new_velocity
+        return
+ # ===============================================================================================    
+   
+
             
 class Spacecraft(Body):
     _instances = []
@@ -198,7 +207,7 @@ class Spacecraft(Body):
 
     def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, 
                  orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False,
-                 velocity_vec = False, thrust_vec = False, path_follow = None):
+                 velocity_vec = False, thrust_vec = False, path_follow = np.array([],[])):
         super().__init__(name, mass, position, velocity, color, radius, is_dynamically_updated)
         self.max_thrust = thrust
         self.orientation = orientation  # radians
@@ -207,7 +216,9 @@ class Spacecraft(Body):
         self.fuel_spent = 0.0
         self.is_target = is_target
         self.navigation_strategy = 'none' # control law
-        self.desired_path = None
+        
+        # Funcionality to handle path_following and plotting
+        self.path_follow = path_follow
         
         
         self.ics = (self.position.copy(),self.velocity.copy()) # initial conditions
@@ -242,76 +253,102 @@ class Spacecraft(Body):
         ay = thrust_magnitude * np.sin(thrust_direction) / self.mass
         return np.array([ax,ay])
     
-    def thrust_ctrl_law(self,accel_from_planets):
-        if self.navigation_strategy == 'stay_put':
-            ground = self.i_p
-            e = self.position - ground
-            e_dot = self.velocity - 0
-            
-            K_p = 0.2
-            K_d = 0.3
-            
-            ship_thrust = -accel_from_planets - K_p * e - K_d * e_dot
+    def thrust_ctrl_law(self,g):
+        match self.navigation_strategy:
+            case 'stay_put':
+                ground = self.i_p
+                e = self.position - ground
+                e_dot = self.velocity - 0
+                
+                K_p = 0.3
+                K_d = 0.2
+                
+                ship_thrust = -g - K_p * e - K_d * e_dot
+            case 'thrust_towards_target':
+                ship_thrust = self.propulsion_acceleration(self.max_thrust, self.orientation)
+            case 'counteract_gravity':
+                pass
+                # Fill this in
+            case 'line-follow':
+                # start = path_follow
+                # end = 
+                # g_tan =  
+                # g_norm = 
+                thrust = 1
+            case 'path-follow':
+                                
+                thrust = 1
+                # fill this in
+            case __:
+                ship_thrust = np.array([0.0,0.0])
+        thrust_mag = np.linalg.norm(ship_thrust)
+        if thrust_mag > self.max_thrust and thrust_mag > 0:
+                ship_thrust = ship_thrust / thrust_mag * self.max_thrust
+        return ship_thrust
 
-        elif self.navigation_strategy == 'thrust_towards_target':
+        return None
+   
+# ===============================================================================================    
+    '''
+    DEPRECATED: FOR TEST ONLY
+    '''
+    def step_forward_dt(self, time_step = 0.5):
+        
+        # Use Velocity Verlet Numerical Integration
+        for ship in Spacecraft._instances:
+            if ship.is_target and ship is not self:
+                self.orientation = np.arctan2(
+                    ship.position[1] - self.position[1],
+                    ship.position[0] - self.position[0]
+                )
+
+        accel_from_planets = self.g_from_bodies()
+
+        if self.navigation_strategy == 'thrust_towards_target':
             ship_thrust = self.propulsion_acceleration(self.max_thrust, self.orientation)
+
         elif self.navigation_strategy == 'counteract_gravity':
-            pass
-            # Fill this in
-        elif self.navigation_strategy == 'path-follow':
-            
-            pass
-            # fill this in
+            thrust_towards_target = self.propulsion_acceleration(self.max_thrust, self.orientation)
+
+            # Find direction toward target
+            if np.linalg.norm(thrust_towards_target) > 0:
+                target_unit_vector = thrust_towards_target / np.linalg.norm(thrust_towards_target)
+            else:
+                target_unit_vector = np.array([0,0])
+
+            # Compute gravity aligned with thrust
+            gravity_aligned_with_thrust = np.dot(accel_from_planets, target_unit_vector) * target_unit_vector
+
+            ship_thrust = thrust_towards_target - (accel_from_planets)
+
+            thrust_mag = np.linalg.norm(ship_thrust)
+            if thrust_mag > self.max_thrust:
+                ship_thrust = ship_thrust / thrust_mag * self.max_thrust  # rescale
+                
         else:
             ship_thrust = np.array([0.0,0.0])
-        thrust_mag = np.linalg.norm(ship_thrust)
-        if thrust_mag > self.max_thrust:
-            ship_thrust = self.max_thrust
-        return ship_thrust
-    
-    # def step_forward_dt(self, time_step = 0.1):
-        
-    #     # Use Velocity Verlet Numerical Integration
-    #     for ship in Spacecraft._instances:
-    #         if ship.is_target and ship is not self:
-    #             self.orientation = np.arctan2(
-    #                 ship.position[1] - self.position[1],
-    #                 ship.position[0] - self.position[0]
-    #             )
 
-    #     accel_from_planets = self.compute_total_current_acceleration_from_bodies()
-    #     self.accel_from_planets = accel_from_planets
+        # Track fuel spent
+        self.fuel_spent += (np.linalg.norm(ship_thrust) * self.mass) * time_step
 
-    #     thrust = self.thrust_ctrl_law(accel_from_planets)
+        # Apply total acceleration (gravity + thrust)
+        total_accel = accel_from_planets + ship_thrust
+        new_position = self.position + self.velocity*time_step + 0.5*total_accel*(time_step**2)
+        
+        # BEFORE WE SET THSI NEW POSITION, WE WANT TO CHECK IF WE'VE HIT ANYTHING..
+        # Taking some inspiration from Chat-GPT, but this is going to be quite computationally expensive...
+        for body in Body._instances:
+            if body is self:
+                continue
+            if segment_circle_intersect(self.position, new_position, body.position, body.radius): #Remember that position.v is the position vector!
+                self.is_crashed = True
+                print(f"Crash between {self.name} and {body.name}")
+        
+        self.position = new_position
+        new_total_accel_n_plus_1 = self.g_from_bodies()
+        new_velocity = self.velocity + (1/2)*(total_accel + new_total_accel_n_plus_1)*time_step
+        self.velocity = new_velocity
+        self.path = np.append(self.path, [self.position.copy()], axis=0)
 
-    #     # Track fuel spent
-    #     self.fuel_spent += (np.linalg.norm(thrust) * self.mass) * time_step
-
-    #     # Apply total acceleration (gravity + thrust)
-    #     total_accel = accel_from_planets + thrust
-    #     self.total_accel = total_accel
-    #     new_position = self.position + self.velocity*time_step + 0.5*total_accel*(time_step**2)
-        
-    #     # BEFORE WE SET THSI NEW POSITION, WE WANT TO CHECK IF WE'VE HIT ANYTHING..
-    #     # Taking some inspiration from Chat-GPT, but this is going to be quite computationally expensive...
-    #     for body in Body._instances:
-    #         if body is self:
-    #             continue
-    #         if segment_circle_intersect(self.position, new_position, body.position, body.radius): #Remember that position.v is the position vector!
-    #             self.is_crashed = True
-    #             print(f"Crash between {self.name} and {body.name}")
-        
-    #     # For debugging and plotting
-        
-    #     self.thrust = thrust
-    #     self.thrust_mag = np.linalg.norm(thrust)
-    #     self.position = new_position
-        
-    #     new_accel_from_planets = self.compute_total_current_acceleration_from_bodies()
-        
-    #     new_total_accel_n_plus_1 = new_accel_from_planets + thrust
-    #     new_velocity = self.velocity + (1/2)*(total_accel + new_total_accel_n_plus_1)*time_step
-    #     self.velocity = new_velocity
-    #     self.path = np.append(self.path, [self.position.copy()], axis=0)
-
-    #     return None
+        return None
+# ===============================================================================================    
