@@ -11,6 +11,49 @@ def sun_earth_moon_system():
 def twobody_figeight():
     pass
 
+def threebody_figeight(m,D):
+    
+    # Scale these dimensionless distances
+    r1_dim = np.array([-0.97000436,  0.24308753])
+    r2_dim = np.array([ 0.97000436, -0.24308753])
+    r3_dim = np.array([ 0.0,         0.0       ])
+    
+    v1_dim = np.array([ 0.4662036850,  0.4323657300])
+    v2_dim = np.array([ 0.4662036850,  0.4323657300])
+    v3_dim = np.array([-0.93240737,   -0.86473146 ])
+    
+    scale = np.sqrt(GRAVITY_CONSTANT*m/D)
+    
+    r1 = D*r1_dim
+    r2 = D*r2_dim
+    r3 = D*r3_dim
+    
+    v1 = scale*v1_dim
+    v2 = scale*v2_dim
+    v3 = scale*v3_dim
+    
+    Body(name= 'planet1', 
+         mass = m, 
+         position = tuple(r1),       
+         velocity = tuple(v1), 
+         color = 'red',   
+         radius = 50, 
+         is_dynamically_updated = True)
+    Body(name= 'planet2', 
+         mass = m, 
+         position = tuple(r2),       
+         velocity = tuple(v2), 
+         color = 'green',   
+         radius = 50, 
+         is_dynamically_updated = True)
+    Body(name= 'planet3', 
+         mass = m, 
+         position = tuple(r3),       
+         velocity = tuple(v3), 
+         color = 'blue',   
+         radius = 50, 
+         is_dynamically_updated = True)
+    
 def threebody_clover():
     pass
 
@@ -30,182 +73,186 @@ def initialize_universe(scenario: str):
     # Clear existing bodies
     Body._instances.clear()
     Spacecraft._instances.clear()
-
-    if scenario == '1': # Goal and spaceship is in two different corner
-        Body(name= 'planet1', 
-             mass = 2000, 
-             position = (2,0),       
-             velocity = (2,0), 
-             color = 'green',   
-             radius = 50, 
-             is_dynamically_updated = False)
-        
-        Spacecraft(name ='spaceshipA', 
-                   mass = 1, 
-                   position = (-500,-500),   
-                   velocity = (-3,3), 
-                   thrust = 50.0, 
-                   color = 'white', 
-                   radius = 1, 
-                   is_dynamically_updated = True)
-        
-        Spacecraft(name = 'target',    
-                   mass = 0,  
-                   position = (500,500), 
-                   velocity = (0,0), 
-                   color = 'purple', 
-                   radius = 20, 
-                   is_dynamically_updated = False,
-                   is_target = True)
-
-        bounds = Bounds(-600, 600, -600, 600)
-
-    elif scenario == '2': # Orbiting ship and target, stationary planet
-        Body(name= 'planet1', 
-             mass = 2000, 
-             position = (0,0),       
-             velocity = (0,0), 
-             color = 'green',   
-             radius = 50, 
-             is_dynamically_updated = False)
-
-        Spacecraft(name ='spaceshipA', 
-                   mass = 1, 
-                   position = (-500,-500),   
-                   velocity = (-1.2,1.2), 
-                   thrust = 50.0, 
-                   color = 'white', 
-                   radius = 10, 
-                   is_dynamically_updated = True)
-        
-        Spacecraft(name = 'target',    
-                   mass = 0,  
-                   position = (300,300), 
-                   velocity = (1.2,-1.2), 
-                   color = 'purple', 
-                   radius = 20, 
-                   is_dynamically_updated = True,
-                   is_target = True)
-
-        bounds = Bounds(-600, 600, -600, 600)
-
-    elif scenario == '3': # Orbiting moon, ship, and target
-        Body(name= 'planet1', 
-             mass = 2000, 
-             position = (0,0),       
-             velocity = (0,0), 
-             color = 'green',   
-             radius = 50, 
-             is_dynamically_updated = False)
-        Body(name= 'moon', 
-             mass = 150, 
-             position = (-500,500),  
-             velocity = (1.2,1.2), 
-             color = 'red',    
-             radius = 50, 
-             is_dynamically_updated = True,
-             velocity_vec = True)
-
-        Spacecraft(name ='spaceshipA', 
-                   mass = 1, 
-                   position = (-500,-500),   
-                   velocity = (-10,10), 
-                   thrust = 50.0, 
-                   color = 'white', 
-                   radius = 10, 
-                   is_dynamically_updated = True,
-                   thrust_vec = True,
-                   velocity_vec = True)
-        
-        Spacecraft(name = 'target',    
-                   mass = 0,  
-                   position = (500,500), 
-                   velocity = (1.2,-1.2), 
-                   color = 'purple', 
-                   radius = 20, 
-                   is_dynamically_updated = True,
-                   is_target = True)
-
-        bounds = Bounds(-600, 600, -600, 600)
-
-    elif scenario == 'two_body': # Stable figure 8 2 body
-        Body(
-            name= 'star1', 
-            mass = 500, 
-            position = (-100,0), 
-            velocity = (0,1.11803398875),  
-            color = 'blue', 
-            is_dynamically_updated = True)
-        
-        Body(name= 'star2', 
-             mass = 500, 
-             position = (100,0),  
-             velocity = (0,-1.11803398875), 
-             color = 'red',  
-             is_dynamically_updated = True)
+    match scenario:
+        case '1': # Goal and spaceship is in two different corner
+            Body(name= 'planet1', 
+                 mass = 2000, 
+                 position = (2,0),       
+                 velocity = (2,0), 
+                 color = 'green',   
+                 radius = 50, 
+                 is_dynamically_updated = False)
+            
+            Spacecraft(name ='spaceshipA', 
+                       mass = 1, 
+                       position = (-500,-500),   
+                       velocity = (-3,3), 
+                       thrust = 50.0, 
+                       color = 'white', 
+                       radius = 1, 
+                       is_dynamically_updated = True)
+            
+            Spacecraft(name = 'target',    
+                       mass = 0,  
+                       position = (500,500), 
+                       velocity = (0,0), 
+                       color = 'purple', 
+                       radius = 20, 
+                       is_dynamically_updated = False,
+                       is_target = True)
     
-        Spacecraft(name ='spaceshipA', 
-                   mass = 10, 
-                   position = (0,0), 
-                   velocity = (-1,1),
-                   color = 'white',
-                   thrust=10)
+            bounds = Bounds(-600, 600, -600, 600)
+
+        case '2': # Orbiting ship and target, stationary planet
+            Body(name= 'planet1', 
+                 mass = 2000, 
+                 position = (0,0),       
+                 velocity = (0,0), 
+                 color = 'green',   
+                 radius = 50, 
+                 is_dynamically_updated = False)
+    
+            Spacecraft(name ='spaceshipA', 
+                       mass = 1, 
+                       position = (-500,-500),   
+                       velocity = (-1.2,1.2), 
+                       thrust = 50.0, 
+                       color = 'white', 
+                       radius = 10, 
+                       is_dynamically_updated = True)
+            
+            Spacecraft(name = 'target',    
+                       mass = 0,  
+                       position = (300,300), 
+                       velocity = (1.2,-1.2), 
+                       color = 'purple', 
+                       radius = 20, 
+                       is_dynamically_updated = True,
+                       is_target = True)
+    
+            bounds = Bounds(-600, 600, -600, 600)
+
+        case '3': # Orbiting moon, ship, and target
+            Body(name= 'planet1', 
+                 mass = 2000, 
+                 position = (0,0),       
+                 velocity = (0,0), 
+                 color = 'green',   
+                 radius = 50, 
+                 is_dynamically_updated = False)
+            Body(name= 'moon', 
+                 mass = 150, 
+                 position = (-500,500),  
+                 velocity = (1.2,1.2), 
+                 color = 'red',    
+                 radius = 50, 
+                 is_dynamically_updated = True,
+                 velocity_vec = True)
+    
+            Spacecraft(name ='spaceshipA', 
+                       mass = 1, 
+                       position = (-500,-500),   
+                       velocity = (-10,10), 
+                       thrust = 50.0, 
+                       color = 'white', 
+                       radius = 10, 
+                       is_dynamically_updated = True,
+                       thrust_vec = True,
+                       velocity_vec = True)
+            
+            Spacecraft(name = 'target',    
+                       mass = 0,  
+                       position = (500,500), 
+                       velocity = (1.2,-1.2), 
+                       color = 'purple', 
+                       radius = 20, 
+                       is_dynamically_updated = True,
+                       is_target = True)
+    
+            bounds = Bounds(-600, 600, -600, 600)
+
+        case '2b_figure8': # Stable figure 8 2 body
+            Body(
+                name= 'star1', 
+                mass = 500, 
+                position = (-100,0), 
+                velocity = (0,1.11803398875),  
+                color = 'blue', 
+                is_dynamically_updated = True)
+            
+            Body(name= 'star2', 
+                 mass = 500, 
+                 position = (100,0),  
+                 velocity = (0,-1.11803398875), 
+                 color = 'red',  
+                 is_dynamically_updated = True)
         
-        Spacecraft(name ='target', 
-                   mass = 10, 
-                   position = (150,0), 
-                   velocity = (0,1),
-                   color = 'green',
-                   radius = 5,
-                   thrust=0.0,
-                   is_target=True)
+            Spacecraft(name ='spaceshipA', 
+                       mass = 10, 
+                       position = (0,0), 
+                       velocity = (-1,1),
+                       color = 'white',
+                       thrust=10)
+            
+            Spacecraft(name ='target', 
+                       mass = 10, 
+                       position = (150,0), 
+                       velocity = (0,1),
+                       color = 'green',
+                       radius = 5,
+                       thrust=0.0,
+                       is_target=True)
+    
+            bounds = Bounds(-150, 150, -150, 150)
 
-        bounds = Bounds(-150, 150, -150, 150)
-
-    elif scenario == 'clover': # Clover 3 body
-        Body(name= 'star1', 
-             mass = 2000, 
-             position = (0,0),       
-             velocity = (0,0), 
-             color = 'blue',   
-             radius = 50, 
-             is_dynamically_updated = False)
-        Body(name= 'star2', 
-             mass = 1500, 
-             position = (-300,700),  
-             velocity = (0,0), 
-             color = 'red',    
-             radius = 50, 
-             is_dynamically_updated = False)
-        Body(name= 'star3', 
-             mass = 600,  
-             position = (-520,-350), 
-             velocity = (0,0), 
-             color = 'yellow', 
-             radius = 50, 
-             is_dynamically_updated = False)
-
-        Spacecraft(name ='spaceshipA', 
-                   mass = 10, 
-                   position = (0,-500),   
-                   velocity = (-3,3), 
-                   thrust = 50.0, 
-                   color = 'white', 
-                   radius = 10, 
-                   is_dynamically_updated = True)
+        case '3b_figure8': # Figure-eight 3 body
+            threebody_figeight(2000, 900)
+            bounds = Bounds(-600, 600, -600, 600)
         
-        Spacecraft(name = 'target',    
-                   mass = 0,  
-                   position = (-500,500), 
-                   velocity = (0,0), 
-                   color = 'purple', 
-                   radius = 20, 
-                   is_dynamically_updated = False,
-                   is_target = True)
+        case '3b_clover': # Clover 3 body
+            Body(name= 'star1', 
+                 mass = 2000, 
+                 position = (0,0),       
+                 velocity = (0,0), 
+                 color = 'blue',   
+                 radius = 50, 
+                 is_dynamically_updated = False)
+            Body(name= 'star2', 
+                 mass = 1500, 
+                 position = (-300,700),  
+                 velocity = (0,0), 
+                 color = 'red',    
+                 radius = 50, 
+                 is_dynamically_updated = False)
+            Body(name= 'star3', 
+                 mass = 600,  
+                 position = (-520,-350), 
+                 velocity = (0,0), 
+                 color = 'yellow', 
+                 radius = 50, 
+                 is_dynamically_updated = False)
+    
+            Spacecraft(name ='spaceshipA', 
+                       mass = 10, 
+                       position = (0,-500),   
+                       velocity = (-3,3), 
+                       thrust = 50.0, 
+                       color = 'white', 
+                       radius = 10, 
+                       is_dynamically_updated = True)
+            
+            Spacecraft(name = 'target',    
+                       mass = 0,  
+                       position = (-500,500), 
+                       velocity = (0,0), 
+                       color = 'purple', 
+                       radius = 20, 
+                       is_dynamically_updated = False,
+                       is_target = True)
+    
+            bounds = Bounds(-600, 600, -600, 600)
 
-        bounds = Bounds(-600, 600, -600, 600)
-
-    else:
-        raise ValueError(f"Unknown scenario: {scenario}")
+        case __:
+            raise ValueError(f"Unknown scenario: {scenario}")
     
     return bounds

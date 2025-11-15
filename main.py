@@ -8,6 +8,7 @@ from matplotlib.collections import PatchCollection
 import math
 from classes import Body, Spacecraft, GRAVITY_CONSTANT, EPSILON_GRAVITY
 from solar_system_config import initialize_universe
+from scipy.interpolate import CubicSpline
 
 def compute_line_gravity_cost(x_coords: np.ndarray, y_coords: np.ndarray):
     """
@@ -53,6 +54,18 @@ def compute_line_gravity_cost(x_coords: np.ndarray, y_coords: np.ndarray):
     return total_vector, line_vectors, total_magnitude
 
 def plot_universe(ax, window = 100): 
+    ax.set_facecolor('black')
+    
+    # Set Grid and Ticks
+    # ax.grid(True, which='both', color='white', alpha=0.25, linewidth=0.8, zorder=-3)
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.set_frame_on(False)
+    ax.tick_params(tick1On=False)
+    locator = MultipleLocator(window/10)
+    ax.xaxis.set_major_locator(locator)
+    ax.yaxis.set_major_locator(locator)
+    
     # TODO separate the static vs dyanmic bodies to prevent redraws
     colors_bodies = [body.color for body in Body._instances]
     body_circles = []
@@ -61,17 +74,7 @@ def plot_universe(ax, window = 100):
         ax.add_patch(circle)
         body_circles.append(circle)
     
-    ax.set_facecolor('black')
-    
-    # Set Grid and Ticks
-    # ax.grid(True, which='both', color='white', alpha=0.25, linewidth=0.8)
-    ax.set_xticklabels([])
-    ax.set_yticklabels([])
-    ax.set_frame_on(False)
-    ax.tick_params(tick1On=False)
-    locator = MultipleLocator(window/10)
-    ax.xaxis.set_major_locator(locator)
-    ax.yaxis.set_major_locator(locator)
+
     
     # Limits and Padding
     ax.set_aspect('equal', adjustable='box')
@@ -164,17 +167,36 @@ def draw_arrows(bodies):
                     print('not zero!!!')
                     ax.arrow(x, y, dx, dy, width = 20, head_width=100, head_length=100, fc='blue', ec='blue')
 
+r = np.arange(-2,4,0.01)
+def f_1(r):
+    x = 50*(r**3 - 5*r**2 +3*r + 11)+200
+    y = 50*(r**2 - 2*r + 3)
+    return x,y
+
+def line(start_pt: tuple, end_pt: tuple, precision=1000, lw=5):
+    x = np.linspace(start_pt[0], end_pt[0], precision)
+    y = np.linspace(start_pt[1], end_pt[1], precision)
+    np.stack((x,y))
+    ax.plot(x,y,linewidth=lw)
+    return x,y
+    
+def points_spline(x,y,precision=1000, lw=5):
+    spl = CubicSpline(x, y)
+    x_new = np.linspace(min(x),max(x),precision)
+    plt.plot(x_new,spl(x_new))
+
 if __name__ == "__main__":
     
     # # SCENARIO SETUP #
     # # ================ #
-    scenario = '3'
+    scenario = '3b_figure8'
     bounds = initialize_universe(scenario)
     window=max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
     bodies = Body._instances
     ships = Spacecraft._instances
-    dt = 5
-    ships[0].navigation_strategy = 'stay_put'
+    dt = 1.5
+    if ships:
+        ships[0].navigation_strategy = 'stay_put'
     plotVectorField = True
 
     # PLOTTING #
@@ -186,6 +208,8 @@ if __name__ == "__main__":
     # Initial Plotting
     body_circles = plot_universe(ax,window)
     q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
+    
+    line((-600,-600),(-400,200),10000)
     
     # draw_arrows([ships[0]])
     
@@ -203,28 +227,29 @@ if __name__ == "__main__":
                 path.set_color('red')
                 for ship in ships:
                     ship.is_dynamically_updated = False
-
-        # Update vector field if any bodies are dynamic
-        if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in bodies):   
-            X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
-            q.set_UVC(U, V)
-            q.set_array(M.flatten())
-
-        # Update body positions (if they move)
-        for circle, body in zip(body_circles, Body._instances):
-            if body.is_dynamically_updated:
-                circle.center = (body.x, body.y)
         
-        artists = [*path_lines, *body_circles, q]
-            
-        return artists
+        if frame % 10 == 0:
+            # Update vector field if any bodies are dynamic
+            if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in bodies):   
+                X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
+                q.set_UVC(U, V)
+                q.set_array(M.flatten())
     
-    ani = animation.FuncAnimation(fig, update, frames=1000, interval=1, blit=True, repeat=False)
+            # Update body positions (if they move)
+            for circle, body in zip(body_circles, Body._instances):
+                if body.is_dynamically_updated:
+                    circle.center = (body.x, body.y)
+            
+            artists = [*path_lines, *body_circles, q]
+                
+            return artists
+    
+    ani = animation.FuncAnimation(fig, update, frames=1000, interval=1, blit=True, repeat=True)
 
     # ani.save('simple_path_test.gif', dpi=100, writer='pillow')
     plt.show() 
-    print('Fuel Spent:',ships[0].fuel_spent)
-    print('Fuel Spent:',ships[0].fuel_spent)
+    # print('Fuel Spent:',ships[0].fuel_spent)
+    # print('Fuel Spent:',ships[0].fuel_spent)
     
     ## Philip's Run Section
     
