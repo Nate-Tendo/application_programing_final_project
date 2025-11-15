@@ -173,7 +173,7 @@ if __name__ == "__main__":
     window=max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
     bodies = Body._instances
     ships = Spacecraft._instances
-    dt = 5
+    dt = 2
     ships[0].navigation_strategy = 'stay_put'
     plotVectorField = True
 
@@ -195,7 +195,7 @@ if __name__ == "__main__":
 
     def update(frame):
         # Always compute physics each frame
-        Body.timestep(dt)
+        Body.timestep(time_step = dt)
            
         for i, path in enumerate(path_lines):
             path.set_data(ships[i].path[:,0],ships[i].path[:,1])
@@ -219,12 +219,12 @@ if __name__ == "__main__":
             
         return artists
     
-    ani = animation.FuncAnimation(fig, update, frames=1000, interval=1, blit=True, repeat=False)
+    ani = animation.FuncAnimation(fig, update, frames=2000, interval=1, blit=True)
 
     # ani.save('simple_path_test.gif', dpi=100, writer='pillow')
-    plt.show() 
+    # plt.show() 
     print('Fuel Spent:',ships[0].fuel_spent)
-    print('Fuel Spent:',ships[0].fuel_spent)
+
     
     ## Philip's Run Section
     
