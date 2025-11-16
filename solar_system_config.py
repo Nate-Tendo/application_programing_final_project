@@ -29,8 +29,8 @@ def initialize_universe(scenario: str):
         Spacecraft(name ='spaceshipA', 
                    mass = 1, 
                    position = (-500,-500),   
-                   velocity = (-3,3), 
-                   thrust = 500.0, 
+                   velocity = (-1,1), 
+                   thrust = 50.0, 
                    color = 'white', 
                    radius = 1, 
                    is_dynamically_updated = True)

@@ -12,21 +12,10 @@ class Bounds:
     y_min: float
     y_max: float
 
-def segment_circle_intersect(A, B, C, r): # This function definition written with ChatGPT's help as the math for line segment into a circle gets messy
+def segment_circle_intersect(A, B, C, r):
     """
     Check if line segment AB intersects a circle with center C and radius r.
-
-    Parameters
-    ----------
-    A, B, C : array-like or numpy arrays of shape (2,)
-        Coordinates of the points.
-    r : float
-        Radius of the circle.
-
-    Returns
-    -------
-    bool
-        True if the segment intersects the circle, False otherwise.
+    Handles the case where A == B (zero-length segment) safely.
     """
     A = np.array(A, dtype=float)
     B = np.array(B, dtype=float)
@@ -38,25 +27,29 @@ def segment_circle_intersect(A, B, C, r): # This function definition written wit
     f = A - C
 
     a = np.dot(d, d)
+
+    # ---- NEW: Handle zero-length segment (A == B) ----
+    if a == 0:
+        # A and B are the same point.
+        # Just check if that point is within the circle.
+        return np.linalg.norm(A - C) <= r
+
+    # ---- Normal case: solve quadratic ----
     b = 2 * np.dot(f, d)
     c = np.dot(f, f) - r**2
 
-    discriminant = b**2 - 4*a*c
+    discriminant = b*b - 4*a*c
 
     if discriminant < 0:
-        # No intersection
-        return False
+        return False  # no intersection
 
-    # Quadratic formula
     discriminant_sqrt = np.sqrt(discriminant)
     t1 = (-b - discriminant_sqrt) / (2*a)
     t2 = (-b + discriminant_sqrt) / (2*a)
 
-    # Check if either t is within the segment [0,1]
-    if (0 <= t1 <= 1) or (0 <= t2 <= 1):
-        return True
+    # Check if intersection points lie on the segment
+    return (0 <= t1 <= 1) or (0 <= t2 <= 1)
 
-    return False
 
 class Body:
     """Base class for planets, moons, stars, spacecraft."""
@@ -64,8 +57,7 @@ class Body:
     _index_counter = -999
     # TODO: Make it easier to initialize velocity at 0 (automatically convert 0 -> Vector2(0,0))
     
-    def __init__(self, name: str, mass: float, position: tuple, velocity = (0,0), color = 'blue', 
-                 radius = 10, is_dynamically_updated = True, velocity_vec = False):
+    def __init__(self, name: str, mass: float, position: tuple, velocity = (0,0), color = 'blue', radius = 10, is_dynamically_updated = True, velocity_vec = False):
         self.name = name
         self.mass = mass # could add a density and size alternative instead of just mass
         self.position = np.array(position,dtype=float)
@@ -133,15 +125,15 @@ class Body:
     
     # Velocity Verlet Numerical Integration -  computes each step for all bodies to avoid violating conservation of momentum
     def step_forward_dt(self, time_step = 0.1):
-        total_accel = self.g_from_bodies()
+        total_accel = self.compute_total_current_acceleration_from_bodies()
         new_position = self.position + self.velocity*time_step + (1/2)*total_accel*(time_step**2)
         self.position = new_position
-        new_total_accel_n_plus_1 = self.g_from_bodies()
+        new_total_accel_n_plus_1 = self.compute_total_current_acceleration_from_bodies()
         new_velocity = self.velocity + (1/2)*(total_accel + new_total_accel_n_plus_1)*time_step
         self.velocity = new_velocity
         return
-    
-    def timestep(self, time_step = 0.1):
+    @staticmethod
+    def timestep(time_step = 0.1):
         dynamic_bodies = [body for body in Body._instances if body.is_dynamically_updated == True]
         
         # Using dictionaries to index off body name to avoid array index errors
@@ -166,15 +158,19 @@ class Body:
         # compute all new positions at t_n+1
         for b in dynamic_bodies:
             new_position = b.position + b.velocity*time_step + 0.5*total_accel[b]*(time_step**2)
-            b.position = new_position
             
-            if isinstance(b,Spacecraft): # Checking for crash between ship and planet
-                for b_c in Body._instances:
-                    if b_c is b:
-                        continue
-                    if segment_circle_intersect(b.position, new_position, b.position, b.radius): #Remember that position.v is the position vector!
-                        b.is_crashed = True
-                        print(f"Crash between {self.name} and {b.name}")
+            for b_c in Body._instances:
+                if b_c is b:
+                    continue
+                elif segment_circle_intersect(b.position, new_position, b_c.position, b_c.radius): #Remember that position.v is the position vector!
+                    b.is_crashed = True
+                    b.is_dynamically_updated = False
+                    b_c.is_crashed = True
+                    b_c.is_dynamically_updated = False
+                    print(f"Crash between {b.name} and {b_c.name}")
+                        
+            # If not crashed, then update position                
+            b.position = new_position
         
         new_total_accel = {}
                     
@@ -196,9 +192,7 @@ class Spacecraft(Body):
     _instances = []
     _index_counter = -999
 
-    def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, 
-                 orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False,
-                 velocity_vec = False, thrust_vec = False, path_follow = None):
+    def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False, velocity_vec = False, thrust_vec = False):
         super().__init__(name, mass, position, velocity, color, radius, is_dynamically_updated)
         self.max_thrust = thrust
         self.orientation = orientation  # radians
@@ -254,9 +248,10 @@ class Spacecraft(Body):
             ship_thrust = -accel_from_planets - K_p * e - K_d * e_dot
         if self.navigation_strategy == 'potential_field':
             k_att = 1.0      # attractive gain (accel per unit distance)
-            k_rep = 5.0   # repulsive gain (scale of repulsion)
+            k_rep = 5000.0   # repulsive gain (scale of repulsion)
             d0 = 50.0        # influence radius of obstacles (any body closer than d0 repels)
             soft = 1e-6
+            # Add mass scaling
 
             target = None
             # finding the target
@@ -285,7 +280,7 @@ class Spacecraft(Body):
                         continue
                     vec = pos - body.position
                     dist = np.linalg.norm(vec)
-                    if dist < (body.radius * 1.1): # If overlapping, create a large immediate repulsion
+                    if dist < (body.radius * 5): # If overlapping, create a large immediate repulsion
                         repulse = (vec + 1e-3) * k_rep * 10.0
                         rep_accel += repulse
                         continue
@@ -310,6 +305,7 @@ class Spacecraft(Body):
             # Finally convert thrust vector to acceleration from propulsion 
             ship_thrust_accel = thrust_vec / (self.mass if self.mass != 0 else 1.0)
             ship_thrust = thrust_vec  # keep the force vector for fuel accounting
+            print(ship_thrust)
         elif self.navigation_strategy == 'thrust_towards_target':
             ship_thrust = self.propulsion_acceleration(self.max_thrust, self.orientation)
         elif self.navigation_strategy == 'counteract_gravity':
