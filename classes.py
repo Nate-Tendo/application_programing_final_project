@@ -190,7 +190,7 @@ class Spacecraft(Body):
 
     def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, 
                  orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False,
-                 velocity_vec = False, thrust_vec = False, path_follow = None):
+                 velocity_vec = False, thrust_vec = False):
         super().__init__(name, mass, position, velocity, color, radius, is_dynamically_updated)
         self.max_thrust = thrust
         self.orientation = orientation  # radians
@@ -198,16 +198,10 @@ class Spacecraft(Body):
         self.list_boosters_on = {'up': 0,'down':0, 'left': 0, 'right': 0}
         self.fuel_spent = 0.0
         self.is_target = is_target
-        self.navigation_strategy = 'none' # control law
+        self.nav_strat = 'none' # control law
+        self.path_follow = None
         
-        # Funcionality to handle path_following and plotting
-        self.path_follow = path_follow
-        if path_follow:    
-            self.path_start = np.array(path_follow[0])
-            self.path_end = np.array(path_follow[1])
-            self.path_vec = self.path_start-self.path_end
-            self.path_len = np.linalg.norm(self.path_vec)
-            self.path_unitvec = self.path_vec/self.path_len
+        # Funcionality to handle path_following and plotting       
         
         self.ics = (self.position.copy(),self.velocity.copy()) # initial conditions
         self.i_p = self.position.copy() # initial position
@@ -221,8 +215,6 @@ class Spacecraft(Body):
         
         # For debugging and plotting
 
-
-
         if self.name == 'target' and not self.is_target:
             raise ValueError("Spacecraft named 'target' must have is_target=True")
         
@@ -234,6 +226,19 @@ class Spacecraft(Body):
             Spacecraft._index_counter = 0
         else:
             Spacecraft._index_counter += 1
+            
+    def set_nav_strat(self, nav_strat = 'none', path_follow = None):
+        self.path_follow = path_follow
+        self.nav_strat = nav_strat
+        if path_follow:    
+            if nav_strat == 'line_follow':
+                self.path_start = np.array(self.position)
+                self.path_end = np.array(path_follow)
+                self.path_vec = self.path_start-self.path_end
+                self.path_len = np.linalg.norm(self.path_vec)
+                self.path_unitvec = self.path_vec/self.path_len
+            if nav_strat == 'path_follow':
+                pass
 
     # TDOO: Update propulsion to take in orietnation relative to spacecraft and translate to the environment
     def propulsion_acceleration(self,thrust_magnitude,thrust_direction):
@@ -242,9 +247,9 @@ class Spacecraft(Body):
         return np.array([ax,ay])
     
     def thrust_ctrl_law(self,g): # Determines the control strategy the ship will use
-        match self.navigation_strategy:
+        match self.nav_strat:
             case 'stay_put': # Stay put in the starting position
-                ground = np.array([-300,220])
+                ground = np.array(self.i_p)
                 e = self.position - ground
                 e_dot = self.velocity - 0
                 
@@ -275,11 +280,20 @@ class Spacecraft(Body):
                 v_tan = np.dot(self.velocity,n)*n
                 v_norm = self.velocity - v_tan
                 
+                # Define coordinate as projection of position vector onto path unit vector
+                s = np.dot(d_vec, n)
+                
+                # Bottoms out the coordinate if it is less than 0 or more than L
+                s_coord = np.clip(s,0,self.path_len)
+                    
+                p_near = s - s_coord
+                
                 e = self.position-self.path_end
                 e_tan = np.dot(e,n)*n
                 e_norm = e-e_tan
                 
-                                
+                # if v_tan !=0
+                                               
                 if np.linalg.norm(e_tan)<10: # once we are near, stay put
                     ground = self.path_end
                     e = self.position - ground
@@ -290,14 +304,14 @@ class Spacecraft(Body):
                     
                     ship_thrust = -g - K_p * e - K_d * e_dot
                 else:
-                    K_p = 2
-                    K_d = 1
-                    additional_thrust = -K_p*e_norm             
+                    K_p = 0.1
+                    K_d = 0.1
+                    additional_thrust = -K_p*e_norm               
                     
                     # Removes the normal component of gravity so gravity can assist us along the path
                     ship_thrust = -g_norm + additional_thrust
             case 'path_follow': # Follow an arbitrary spline from start to end then stay put
-
+                
                 
                 thrust = 1
                 # fill this in
@@ -307,5 +321,3 @@ class Spacecraft(Body):
         if thrust_mag > self.max_thrust and thrust_mag > 0:
                 ship_thrust = ship_thrust / thrust_mag * self.max_thrust
         return ship_thrust
-
-        return None

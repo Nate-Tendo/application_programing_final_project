@@ -150,28 +150,26 @@ def body_vectors(bodies,t_scaling=5000,v_scaling=5000):
     thr_vec = None
     
     for body in bodies:
-        if body.velocity_vec == True:
-            x = body.x
-            y = body.y
-            dx = body.vx
-            dy = body.vy
-            if body.vmag != 0:
-                vel_vec =  {'x':x, 'y':y,'dx':dx, 'dy':dy}
-            else:
-                 vel_vec = {'x':x, 'y':y,'dx':0, 'dy':0}
+        x = body.x
+        y = body.y
+        dx = body.vx
+        dy = body.vy
+        if body.vmag != 0:
+            vel_vec =  {'x':x, 'y':y,'dx':dx, 'dy':dy}
+        else:
+             vel_vec = {'x':x, 'y':y,'dx':0, 'dy':0}
     for body in bodies:
         if isinstance(body,Spacecraft):
-            if body.thrust_vec == True:
-                # print('I got it')
-                x = body.x
-                y = body.y
-                dx = body.thrust[0]*t_scaling
-                dy = body.thrust[1]*t_scaling
-                # print(np.array([dx,dy]))
-                if body.thrust_mag != 0:
-                    thr_vec = {'x':[x], 'y':[y],'dx':[dx], 'dy':[dy]}
-                else:
-                    thr_vec = {'x':[x], 'y':[y],'dx':[0], 'dy':[0]}
+            # print('I got it')
+            x = body.x
+            y = body.y
+            dx = body.thrust[0]*t_scaling
+            dy = body.thrust[1]*t_scaling
+            # print(np.array([dx,dy]))
+            if body.thrust_mag != 0:
+                thr_vec = {'x':[x], 'y':[y],'dx':[dx], 'dy':[dy]}
+            else:
+                thr_vec = {'x':[x], 'y':[y],'dx':[0], 'dy':[0]}
     return vel_vec, thr_vec
 
 r = np.arange(-2,4,0.01)
@@ -193,17 +191,20 @@ def line(start_pt: tuple, end_pt: tuple, precision=1000, lw=3):
     return x,y,ln
     
 def points_spline(x,y,precision=1000, lw=2):
+    x = np.array(x)
+    y = np.array(y)
     spl = CubicSpline(x, y)
     x_new = np.linspace(min(x),max(x),precision)
     plt.plot(x_new,spl(x_new),zorder=2)
     # dxdt, dydt = splev(ti, tck, der=1)
 
-if __name__ == "__main__":
-    
-    # # SCENARIO SETUP #
-    # # ================ #
     q = None
     follow_line = None
+        
+if __name__ == "__main__":
+    
+
+        
     
     scenario = '2b_figure8'
     bounds = initialize_universe(scenario)
@@ -213,11 +214,16 @@ if __name__ == "__main__":
     ships = Spacecraft._instances
     dt = 10
     if ships:
-        ships[0].navigation_strategy = 'line_follow'
-        # ships[0].navigation_strategy = 'stay_put'
-        
-    # ships[0].path_follow = ((-250,-250),(-300,220))
+        mainship = ships[0]
+        mainship.set_nav_strat('line_follow',(200,-215))
+        # mainship.set_nav_strat('stay_put')
+        '''
+        # mainship.set_nav_strat('path_follow',
+                                 [(),(),(),(),()]
+        '''
+   
     
+   
     # PLOTTING #
     # ========== #
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
@@ -229,14 +235,18 @@ if __name__ == "__main__":
     if plotVectorField == True:
         q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
     
-    if ships[0].path_follow:
-      x, y, follow_line = line(ships[0].path_start,ships[0].path_end,10000)
+    if mainship.nav_strat == 'line_follow':
+      x, y, follow_line = line(mainship.path_start,mainship.path_end,10000)
+
+    # points_spline(, y)
 
     # parametric_func(f_1,r)
     
-    qv, qt = body_vectors([ships[0]])
-
-    q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale=1, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
+    qv, qt = body_vectors([mainship])    
+    if mainship.thrust_vec == True:
+        q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale=1, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
+    if mainship.thrust_vec == True:
+        q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale=1, angles='xy', scale_units='xy', color = 'skyblue', pivot = 'tail', zorder = 4)
     
     path_lines = []
     for i, ship in enumerate(ships):
@@ -267,13 +277,20 @@ if __name__ == "__main__":
                     circle.center = (body.x, body.y)
             
             qv,qt = body_vectors([ships[0]])
-            q_t.set_UVC(qt['dx'], qt['dy'])
-            q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
+            if mainship.velocity_vec == True:
+                q_v.set_UVC(qv['dx'], qv['dy'])
+                q_v.set_offsets(np.array([[qv['x'], qv['y']]]))
+            if mainship.thrust_vec == True:
+                q_t.set_UVC(qt['dx'], qt['dy'])
+                q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
             
             pot_artists = [*path_lines, *body_circles, q, follow_line,q_t]  
             
             artists = [artist for artist in pot_artists if artist is not None]
-                
+            
+            if frame == 200:
+                print('Fuel Spent:',ships[0].fuel_spent)
+            
         return artists
     
     ani = animation.FuncAnimation(fig, update, frames=1000, interval=1, blit=True, repeat=True)

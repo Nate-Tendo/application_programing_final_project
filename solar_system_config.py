@@ -139,9 +139,8 @@ def initialize_universe(scenario: str):
                        velocity = (0,0),
                        radius = 10,
                        color = 'white',
-                       thrust=0.1,
-                       thrust_vec = True,
-                       path_follow=((-250,-250),(-300,220)))
+                       thrust=1,
+                       thrust_vec = True)
             
             # Spacecraft(name ='spaceshipA', # gravity hurting
             #            mass = 10, 
