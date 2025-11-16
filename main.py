@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.ticker import MultipleLocator
 from matplotlib.patches import Circle
-from matplotlib.collections import PatchCollection
+import matplotlib.collections # import PatchCollection
 import math
 from classes import Body, Spacecraft, GRAVITY_CONSTANT, EPSILON_GRAVITY
 from solar_system_config import initialize_universe
@@ -145,7 +145,10 @@ def vector_field(bodies, window_size, spacing=100, max_acc=5e-4):
     
     return X, Y, U_disp, V_disp, Mag
 
-def draw_arrows(bodies):
+def body_vectors(bodies,t_scaling=5000,v_scaling=5000):
+    vel_vec = None
+    thr_vec = None
+    
     for body in bodies:
         if body.velocity_vec == True:
             x = body.x
@@ -153,17 +156,23 @@ def draw_arrows(bodies):
             dx = body.vx
             dy = body.vy
             if body.vmag != 0:
-                ax.arrow(x, y, dx, dy, width = 20, head_width=100, head_length=100, fc='Red', ec='blue')
+                vel_vec =  {'x':x, 'y':y,'dx':dx, 'dy':dy}
+            else:
+                 vel_vec = {'x':x, 'y':y,'dx':0, 'dy':0}
     for body in bodies:
         if isinstance(body,Spacecraft):
             if body.thrust_vec == True:
+                # print('I got it')
                 x = body.x
                 y = body.y
-                dx = body.thrust[0]
-                dy = body.thrust[1]
+                dx = body.thrust[0]*t_scaling
+                dy = body.thrust[1]*t_scaling
+                # print(np.array([dx,dy]))
                 if body.thrust_mag != 0:
-                    print('not zero!!!')
-                    ax.arrow(x, y, dx, dy, width = 20, head_width=100, head_length=100, fc='blue', ec='blue')
+                    thr_vec = {'x':[x], 'y':[y],'dx':[dx], 'dy':[dy]}
+                else:
+                    thr_vec = {'x':[x], 'y':[y],'dx':[0], 'dy':[0]}
+    return vel_vec, thr_vec
 
 r = np.arange(-2,4,0.01)
 def f_1(r):
@@ -174,47 +183,41 @@ def f_1(r):
 
 def parametric_func(f,r,lw=3):
     x,y = f(r)
-    ax.plot(x,y,zorder=4,linewidth=lw,linestyle='--')
+    ax.plot(x,y,zorder=2,linewidth=lw,linestyle='--')
 
 def line(start_pt: tuple, end_pt: tuple, precision=1000, lw=3):
     x = np.linspace(start_pt[0], end_pt[0], precision)
     y = np.linspace(start_pt[1], end_pt[1], precision)
     np.stack((x,y))
-    ax.plot(x,y,zorder=4,linestyle='--',linewidth=lw)
-    return x,y
+    (ln,) = ax.plot(x,y,zorder=2,color='powderblue', linestyle='--',linewidth=lw)
+    return x,y,ln
     
 def points_spline(x,y,precision=1000, lw=2):
     spl = CubicSpline(x, y)
     x_new = np.linspace(min(x),max(x),precision)
-    plt.plot(x_new,spl(x_new))
+    plt.plot(x_new,spl(x_new),zorder=2)
     # dxdt, dydt = splev(ti, tck, der=1)
 
 if __name__ == "__main__":
     
     # # SCENARIO SETUP #
     # # ================ #
-    scenario = '3b_figure8'
+    q = None
+    follow_line = None
+    
+    scenario = '2b_figure8'
     bounds = initialize_universe(scenario)
     window=max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
     bodies = Body._instances
-    
-    '''
-    ## REMOVE THIS LATER
-    '''
-    ship = Spacecraft(name ='spaceshipA', 
-               mass = 10, 
-               position = (-500,-500), 
-               velocity = (-1,1),
-               color = 'red',
-               radius = 20,
-               thrust=0.07)
-    
+    plotVectorField = True
     ships = Spacecraft._instances
     dt = 10
     if ships:
-        ships[0].navigation_strategy = 'stay_put'
-    plotVectorField = True
-
+        ships[0].navigation_strategy = 'line_follow'
+        # ships[0].navigation_strategy = 'stay_put'
+        
+    # ships[0].path_follow = ((-250,-250),(-300,220))
+    
     # PLOTTING #
     # ========== #
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
@@ -223,52 +226,53 @@ if __name__ == "__main__":
 
     # Initial Plotting
     body_circles = plot_universe(ax,window)
-    q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
+    if plotVectorField == True:
+        q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
     
-    
-    line((-600,-600),(-400,200),10000)
+    if ships[0].path_follow:
+      x, y, follow_line = line(ships[0].path_start,ships[0].path_end,10000)
+
     # parametric_func(f_1,r)
     
-    # draw_arrows([ships[0]])
+    qv, qt = body_vectors([ships[0]])
+
+    q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale=1, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
     
     path_lines = []
     for i, ship in enumerate(ships):
-        path_lines.append(ax.plot([],[], color = 'white', linewidth = 1, zorder = 0)[0])
+        path_lines.append(ax.plot([],[], color = 'white', linewidth = 3, zorder = 0)[0])
 
     def update(frame):
         # Always compute physics each frame
         Body.timestep(dt)
-        
-        # ========================================================
-        '''
-        DEPRECATED: REMOVE LATER, and uncomment above
-        '''
-        # for body in bodies:
-        #     if body.is_dynamically_updated:
-        #         body.step_forward_dt(time_step = dt)
-        # ========================================================
-
-        
+               
         for i, path in enumerate(path_lines):
             path.set_data(ships[i].path[:,0],ships[i].path[:,1])
-            if ships[i].is_crashed:
-                path.set_color('red')
-                for ship in ships:
-                    ship.is_dynamically_updated = False
+            # if ships[i].is_crashed:
+            #     path.set_color('red')
+            #     for ship in ships:
+            #         ship.is_dynamically_updated = False
         
         if frame % 1 == 0:
             # Update vector field if any bodies are dynamic
-            if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in bodies):   
-                X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
-                q.set_UVC(U, V)
-                q.set_array(M.flatten())
-    
+            if plotVectorField == True:
+                if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in bodies):   
+                    X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
+                    q.set_UVC(U, V)
+                    q.set_array(M.flatten())
+                    
             # Update body positions (if they move)
             for circle, body in zip(body_circles, Body._instances):
                 if body.is_dynamically_updated:
                     circle.center = (body.x, body.y)
             
-            artists = [*path_lines, *body_circles, q]          
+            qv,qt = body_vectors([ships[0]])
+            q_t.set_UVC(qt['dx'], qt['dy'])
+            q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
+            
+            pot_artists = [*path_lines, *body_circles, q, follow_line,q_t]  
+            
+            artists = [artist for artist in pot_artists if artist is not None]
                 
         return artists
     
