@@ -233,22 +233,19 @@ def reset_simulation():
         body.position[:] = pos
         body.velocity[:] = vel
         body.is_crashed = False
+        body.is_dynamically_updated = initial_dynamic_staqte[Body._instances.index(body)]
     for ship in Spacecraft._instances:
         ship.path = ship.initial_path.copy()
         ship.fuel_spent = 0
-        ship.vector_field = plotVectorField
-        ship.velocity_vec = False
-        ship.thrust_vec = False
-
         
 if __name__ == "__main__": 
     
     # ============================================================================================================
     #                   S I M U L A T I O N       S E T U P
     # ============================================================================================================
-    scenario = '3' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
-    plotVectorField = True
-    navigationStrategy = 'line_follow' #Options: 'line_follow', 'chase'
+    scenario = '2b_figure8_chase' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
+    plotVectorField = False
+    navigationStrategy = 'chase' #Options: 'line_follow', 'chase'
     followPath = (-300,220)
     dt = .5
     # =============================================================================================================
@@ -266,6 +263,7 @@ if __name__ == "__main__":
     # Getting initial state for figure reset
     initial_positions = [body.position.copy() for body in Body._instances]
     initial_velocities = [body.velocity.copy() for body in Body._instances]
+    initial_dynamic_staqte = [body.is_dynamically_updated for body in Body._instances]
     for ship in Spacecraft._instances:
         ship.initial_path = ship.path.copy()
     
@@ -315,6 +313,9 @@ if __name__ == "__main__":
             if ships[i].is_crashed:
                 path.set_color('red')
                 path.set_linestyle('--')
+            else:
+                path.set_color(ships[i].color)
+                path.set_linestyle('-')
         
         # Update vector field if any bodies are dynamic
         q.set_visible(mainship.vector_field)
