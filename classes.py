@@ -198,6 +198,8 @@ class Spacecraft(Body):
         self.navigation_strategy = 'none' # control law
         self.desired_path = None
         self.accel = np.array([0.0,0.0]) #for debugging
+        # For smoothing commanded acceleration (potential field modes)
+        self.prev_a_cmd = np.array([0.0, 0.0], dtype=float)
         self.nav_strat = 'none' # control law
         self.path_follow = None
         # Direction PID
@@ -340,48 +342,99 @@ class Spacecraft(Body):
             # 2. IMPROVED POTENTIAL FIELD (with tangential braking)
             # -------------------------------------------------
             case 'potential_field':
+                # Potential-field guidance with chase + rendezvous modes
                 target = self._find_target()
                 if target is None:
-                    ship_thrust = -g  # just hover if no target
+                    # no target: just hover by cancelling gravity and damping
+                    k_damp_hover = 0.08
+                    ship_thrust = -g - k_damp_hover * self.velocity
                 else:
                     pos = self.position
                     vel = self.velocity
+                    tgt_pos = target.position
+                    tgt_vel = target.velocity
 
-                    # Attractive accel
-                    k_att = 0.0025
-                    dir_to_goal = target.position - pos
+                    # -------------------------
+                    # Params to tune
+                    # -------------------------
+                    k_att_far   = 8e-4     # attractive gain when far
+                    k_att_near  = 1.2e-3   # attractive gain when near (rendezvous PD)
+                    k_damp_far  = 0.03     # small global damping when far
+                    k_damp_near = 0.10     # damping on *relative* velocity when near
+
+                    chase_radius     = 400.0   # outside this → chase mode
+                    rendezvous_radius = 200.0  # inside this → fully rendezvous
+
+                    repulsion_factor = 8.0
+                    k_rep            = 8e7
+                    a_rep_max        = 5    # cap on repulsive accel
+                    alpha_smooth     = 0.25    # accel smoothing  (0<alpha<=1)
+
+                    # -------------------------
+                    # Common terms
+                    # -------------------------
+                    dir_to_goal = tgt_pos - pos          # vector TO target
                     dist_to_goal = np.linalg.norm(dir_to_goal)
                     if dist_to_goal < 1e-6:
-                        a_att = np.zeros(2)
+                        dir_to_goal = np.zeros(2)
+                        dist_to_goal = 0.0
+
+                    # repulsive acceleration (from planets etc.)
+                    a_rep = self._repulsive_accel(
+                        pos,
+                        repulsion_factor=repulsion_factor,
+                        k_rep=k_rep,
+                    )
+                    rep_mag = np.linalg.norm(a_rep)
+                    if rep_mag > a_rep_max and rep_mag > 0:
+                        a_rep = a_rep / rep_mag * a_rep_max
+
+                    # -------------------------
+                    # Mode 1: CHASE (far away)
+                    #   - run toward target
+                    #   - only light global damping
+                    # -------------------------
+                    if dist_to_goal > chase_radius:
+                        a_att = k_att_far * dir_to_goal
+                        a_damp = -k_damp_far * vel               # damp absolute velocity a bit
+                        a_total_des = a_att + a_rep + a_damp
+
+                    # -------------------------
+                    # Mode 2: RENDEZVOUS (near target)
+                    #   - PD on relative position and velocity
+                    #   - matches target motion instead of stopping in world frame
+                    # -------------------------
                     else:
-                        a_att = k_att * dir_to_goal
+                        # position error (self relative to target)
+                        e = pos - tgt_pos          # want e → 0
+                        # relative velocity
+                        v_rel = vel - tgt_vel      # want v_rel → 0
 
-                    # Repulsion
-                    a_rep = self._repulsive_accel(pos, repulsion_factor=15.0, k_rep=1.5e7)
-                    # print(a_rep)
+                        # blend gains depending on distance (optional smooth transition)
+                        # here we just use "near" gains inside chase_radius
+                        k_p = k_att_near
+                        k_v = k_damp_near
 
-                    # Combine
-                    a_des = a_att + a_rep
+                        # desired TOTAL accel (including gravity) in relative coordinates
+                        a_rel_des = -k_p * e - k_v * v_rel
 
-                    # Tangential braking near goal
-                    slow_radius = 300.0
-                    brake_gain = 0.4
-                    v = vel
-                    vmag = np.linalg.norm(v)
+                        # plus obstacle repulsion in world frame
+                        a_total_des = a_rel_des + a_rep
 
-                    if dist_to_goal < slow_radius and vmag > 1e-6:
-                        v_hat = v / vmag
-                        a_des += -brake_gain * v_hat * min(vmag, 50.0)
+                    # -------------------------
+                    # Smooth the command a bit
+                    # -------------------------
+                    a_cmd = (1.0 - alpha_smooth) * self.prev_a_cmd + alpha_smooth * a_total_des
+                    self.prev_a_cmd = a_cmd.copy()
 
-                    # Optional speed limiting
-                    vmax = 35.0
-                    if vmag > vmax and vmag > 1e-6:
-                        a_des += -(v / vmag) * 0.03 * (vmag - vmax)
+                    # -------------------------
+                    # Convert desired total accel to thrust accel
+                    #
+                    # timestep() does: total = g + thrust
+                    # We want total ≈ a_cmd  ⇒ thrust = a_cmd - g
+                    # -------------------------
+                    ship_thrust = a_cmd - g
 
-                    # This is total desired acceleration; we don't cancel gravity here,
-                    # so thrust accel is just a_des (Body.timestep already adds g separately).
-                    ship_thrust = a_des
-                    print(ship_thrust)
 
             # -------------------------------------------------
             # 3. LYAPUNOV-STABLE PD CONTROLLER (with gravity comp.)
