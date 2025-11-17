@@ -197,6 +197,7 @@ class Spacecraft(Body):
         self.is_target = is_target
         self.navigation_strategy = 'none' # control law
         self.desired_path = None
+        self.accel = np.array([0.0,0.0]) #for debugging
         # Direction PID
         self.mpid_integral_dir = 0.0
         self.mpid_last_error_dir = 0.0
@@ -205,7 +206,7 @@ class Spacecraft(Body):
         self.mpid_last_error_mag = 0.0
 
         # momentum setpoint (tune this)
-        self.mpid_setpoint = 2000.0   # example
+        self.mpid_setpoint = 20.0   # example
 
         
         
@@ -443,7 +444,8 @@ class Spacecraft(Body):
                     else:
                         a_speed = np.array([0.0, 0.0])
 
-                    final_desired_accel = desired_accel + a_turn + a_speed
+                    final_desired_accel = desired_accel + a_turn #+ a_speed
+                    self.accel = a_turn
 
                     # Convert to thrust
                     thrust_vec = final_desired_accel * self.mass

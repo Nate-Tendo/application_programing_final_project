@@ -148,6 +148,7 @@ def vector_field(bodies, window_size, spacing=100, max_acc=5e-4):
 def body_vectors(bodies,t_scaling=5000,v_scaling=5000):
     vel_vec = None
     thr_vec = None
+    accel_vel = None
     
     for body in bodies:
         x = body.x
@@ -165,12 +166,16 @@ def body_vectors(bodies,t_scaling=5000,v_scaling=5000):
             y = body.y
             dx = body.thrust[0]*t_scaling
             dy = body.thrust[1]*t_scaling
+            dx_a = body.accel[0]*t_scaling
+            dy_a = body.accel[1]*t_scaling
             # print(np.array([dx,dy]))
             if body.thrust_mag != 0:
                 thr_vec = {'x':[x], 'y':[y],'dx':[dx], 'dy':[dy]}
+                accel_vel = {'x':[x], 'y':[y],'dx_a':[dx_a], 'dy_a':[dy_a]}
             else:
+                accel_vel = {'x':[x], 'y':[y],'dx_a':[0], 'dy_a':[0]}
                 thr_vec = {'x':[x], 'y':[y],'dx':[0], 'dy':[0]}
-    return vel_vec, thr_vec
+    return vel_vec, thr_vec, accel_vel
 
 r = np.arange(-2,4,0.01)
 def f_1(r):
@@ -205,9 +210,9 @@ if __name__ == "__main__":
     # ============================================================================================================
     #                   S I M U L A T I O N       S E T U P
     # ============================================================================================================
-    scenario = '2b_figure8'
+    scenario = '1'
     plotVectorField = True
-    navigationStrategy = 'line_follow'
+    navigationStrategy = 'potential_field'
     followPath = (-300,220)
     dt = 1
     # =============================================================================================================
@@ -240,9 +245,10 @@ if __name__ == "__main__":
           x, y, follow_line = line(mainship.path_start,mainship.path_end,10000)
 
    
-        qv, qt = body_vectors([mainship])    
+        qv, qt, qa = body_vectors([mainship])    
         if mainship.thrust_vec == True:
             q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale=1, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
+            q_a = ax.quiver(qa['x'],qa['y'],qa['dx_a'],qa['dy_a'], scale=1, angles='xy', scale_units='xy', color = 'yellow', pivot = 'tail', zorder = 4)
         if mainship.thrust_vec == True:
             q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale=1, angles='xy', scale_units='xy', color = 'skyblue', pivot = 'tail', zorder = 4)
     
@@ -275,15 +281,17 @@ if __name__ == "__main__":
                     circle.center = (body.x, body.y)
             
             if ships:
-                qv,qt = body_vectors([ships[0]])
+                qv,qt,qa = body_vectors([ships[0]])
                 if mainship.velocity_vec == True:
                     q_v.set_UVC(qv['dx'], qv['dy'])
                     q_v.set_offsets(np.array([[qv['x'], qv['y']]]))
                 if mainship.thrust_vec == True:
                     q_t.set_UVC(qt['dx'], qt['dy'])
                     q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
+                    q_a.set_UVC(qa['dx_a'], qa['dy_a'])
+                    q_a.set_offsets(np.array([[qa['x'], qa['y']]]))
             
-            pot_artists = [*path_lines, *body_circles, q, follow_line, q_t, q_v]  
+            pot_artists = [*path_lines, *body_circles, q, follow_line, q_t, q_v,q_a]  
             
             artists = [artist for artist in pot_artists if artist is not None]
             
@@ -292,8 +300,8 @@ if __name__ == "__main__":
             
         return artists
     
-    ani = animation.FuncAnimation(fig, update, frames=1000, interval=1, blit=True, repeat=True)
+    ani = animation.FuncAnimation(fig, update, frames=100, interval=1, blit=True, repeat=True)
 
-    # ani.save('simple_path_test.gif', dpi=100, writer='pillow')
+    ani.save('simple_path_test.gif', dpi=100, writer='pillow')
     plt.show() 
     

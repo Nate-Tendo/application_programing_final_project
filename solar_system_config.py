@@ -34,7 +34,8 @@ def initialize_universe(scenario: str):
                        thrust = 50.0, 
                        color = 'white', 
                        radius = 20, 
-                       is_dynamically_updated = True)
+                       is_dynamically_updated = True,
+                       thrust_vec = True)
             
             Spacecraft(name = 'target',    
                        mass = 0,  
@@ -152,7 +153,7 @@ def initialize_universe(scenario: str):
                        is_target=True,
                        is_dynamically_updated = False)
     
-            bounds = Bounds(-300, 300, -300, 300)
+            bounds = Bounds(-600, 600, -600, 600)
 
         case '3b_figure8': # Figure-eight 3 body
             threebody_figeight(2000, 400)
