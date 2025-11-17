@@ -158,8 +158,6 @@ class Body:
                 elif segment_circle_intersect(b.position, new_position, b_c.position, b_c.radius): #Remember that position.v is the position vector!
                     b.is_crashed = True
                     b.is_dynamically_updated = False
-                    b_c.is_crashed = True
-                    b_c.is_dynamically_updated = False
                     print(f"Crash between {b.name} and {b_c.name}")
                         
             # If not crashed, then update position                
@@ -450,6 +448,32 @@ class Spacecraft(Body):
                     ship_thrust = thrust_vec
 
                     print(ship_thrust)
+
+            case 'chase':
+                ## VERY SIMPLE FORCE-BOOSTING SCHEME. Will definitely need to update and probably translate into an appropriate frame
+                force_boosters = np.array([0.0,0.0])
+            
+                if self.list_boosters_on['up'] == 1:
+                    print('up')
+                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(90))
+                    self.list_boosters_on['up'] = 0
+                if self.list_boosters_on['down'] == 1:
+                    print('down')
+                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(-90))
+                    self.list_boosters_on['down'] = 0
+                    
+                if self.list_boosters_on['left'] == 1:
+                    print('left')
+                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(180))
+                    self.list_boosters_on['left'] = 0
+                    
+                if self.list_boosters_on['right'] == 1:
+                    print('right')
+                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(0))
+                    self.list_boosters_on['right'] = 0
+
+                ship_thrust = force_boosters
+
             case __:
                 ship_thrust = np.array([0.0,0.0])
         thrust_mag = np.linalg.norm(ship_thrust)

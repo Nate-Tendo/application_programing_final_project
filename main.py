@@ -81,7 +81,7 @@ def plot_universe(ax, window = 100):
 
     return body_circles
 
-def make_on_key(ship):
+def connect_on_key_function_to_ship(ship):
     def on_key(event):
         
         if event.key == 'up':
@@ -184,7 +184,6 @@ def f_1(r):
     y = 50*(r**2 - 2*r + 3)
     return x,y
 
-
 def parametric_func(f,r,lw=3):
     x,y = f(r)
     ax.plot(x,y,zorder=2,linewidth=lw,linestyle='--')
@@ -193,7 +192,7 @@ def line(start_pt: tuple, end_pt: tuple, precision=1000, lw=3):
     x = np.linspace(start_pt[0], end_pt[0], precision)
     y = np.linspace(start_pt[1], end_pt[1], precision)
     np.stack((x,y))
-    (ln,) = ax.plot(x,y,zorder=2,color='powderblue', linestyle='--',linewidth=lw)
+    (ln,) = ax.plot(x,y,zorder=2,color='royalblue', linestyle='--',linewidth=lw, alpha = 0.5)
     return x,y,ln
     
 def points_spline(x,y,precision=1000, lw=2):
@@ -211,11 +210,11 @@ if __name__ == "__main__":
     # ============================================================================================================
     #                   S I M U L A T I O N       S E T U P
     # ============================================================================================================
-    scenario = '2b_figure8'
+    scenario = '2b_figure8_chase' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower'
     plotVectorField = True
-    navigationStrategy = 'line_follow'
+    navigationStrategy = 'chase' #Options: 'line_follow', 'chase'
     followPath = (-300,220)
-    dt = 1
+    dt = .5
     # =============================================================================================================
    
     q = None
@@ -231,7 +230,7 @@ if __name__ == "__main__":
     # PLOTTING #
     # ========== #
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
-    # fig.canvas.mpl_connect('key_press_event', make_on_key(ships[0]))
+    fig.canvas.mpl_connect('key_press_event', connect_on_key_function_to_ship(ships[0]))
     X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
 
     # Initial Plotting
@@ -241,6 +240,8 @@ if __name__ == "__main__":
     
     if ships:
         mainship = ships[0]
+        mainship.velocity_vec = True
+        mainship.thrust_vec = False
         mainship.set_nav_strat(navigationStrategy,followPath)
     
         if mainship.nav_strat == 'line_follow':
@@ -252,21 +253,21 @@ if __name__ == "__main__":
             q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale=1, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
             q_a = ax.quiver(qa['x'],qa['y'],qa['dx_a'],qa['dy_a'], scale=1, angles='xy', scale_units='xy', color = 'yellow', pivot = 'tail', zorder = 4)
         if mainship.velocity_vec == True:
-            q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale=1, angles='xy', scale_units='xy', color = 'skyblue', pivot = 'tail', zorder = 4)
+            # Changed the scale here to be more visible
+            q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale=.02, angles='xy', scale_units='xy', color = 'pink', pivot = 'tail', zorder = 4)
     
     path_lines = []
     for i, ship in enumerate(ships):
-        path_lines.append(ax.plot([],[], color = 'white', linewidth = 3, zorder = 0)[0])
+        path_lines.append(ax.plot([],[], color = ship.color, linewidth = ship.radius * 0.5, zorder = 0)[0])
 
     def update(frame):
         # Always compute physics each frame
         Body.timestep(time_step = dt)
         for i, path in enumerate(path_lines):
             path.set_data(ships[i].path[:,0],ships[i].path[:,1])
-            # if ships[i].is_crashed:
-            #     path.set_color('red')
-            #     for ship in ships:
-            #         ship.is_dynamically_updated = False
+            if ships[i].is_crashed:
+                path.set_color('red')
+                path.set_linestyle('--')
         
         # Update vector field if any bodies are dynamic
         if plotVectorField == True:
