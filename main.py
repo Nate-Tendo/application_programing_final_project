@@ -164,6 +164,29 @@ def draw_arrows(bodies):
                     print('not zero!!!')
                     ax.arrow(x, y, dx, dy, width = 20, head_width=100, head_length=100, fc='blue', ec='blue')
 
+def update_plot(path_lines, ships, bodies, body_circles, q, window):
+    # Update ship paths
+    for i, path in enumerate(path_lines):
+        path.set_data(ships[i].path[:,0], ships[i].path[:,1])
+        if ships[i].is_crashed:
+            path.set_color('red')
+            for ship in ships:
+                ship.is_dynamically_updated = False
+
+    # Update vector field if any bodies are dynamic
+    if any(body.is_dynamically_updated and not isinstance(body, Spacecraft) for body in bodies):
+        X, Y, U, V, M = vector_field(bodies, window, spacing=window/10)
+        q.set_UVC(U, V)
+        q.set_array(M.flatten())
+
+    # Update body positions
+    for circle, body in zip(body_circles, Body._instances):
+        if body.is_dynamically_updated:
+            circle.center = (body.x, body.y)
+    
+    return [*path_lines, *body_circles, q]
+
+
 if __name__ == "__main__":
     
     # # SCENARIO SETUP #
@@ -173,8 +196,8 @@ if __name__ == "__main__":
     window=max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
     bodies = Body._instances
     ships = Spacecraft._instances
-    dt = .5
-    ships[0].navigation_strategy = 'stay_put'
+    dt = .2
+    ships[0].navigation_strategy = 'potential_field'
     plotVectorField = True
 
     # PLOTTING #
@@ -192,37 +215,29 @@ if __name__ == "__main__":
     path_lines = []
     for i, ship in enumerate(ships):
         path_lines.append(ax.plot([],[], color = ship.color, linewidth = 1, zorder = 0)[0])
-
-    def update(frame):
-        # Always compute physics each frame
-        Body.timestep(time_step = dt)
-           
-        for i, path in enumerate(path_lines):
-            path.set_data(ships[i].path[:,0],ships[i].path[:,1])
-            if ships[i].is_crashed:
-                path.set_color('red')
-                for ship in ships:
-                    ship.is_dynamically_updated = False
-
-        # Update vector field if any bodies are dynamic
-        if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in bodies):   
-            X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
-            q.set_UVC(U, V)
-            q.set_array(M.flatten())
-
-        # Update body positions (if they move)
-        for circle, body in zip(body_circles, Body._instances):
-            if body.is_dynamically_updated:
-                circle.center = (body.x, body.y)
         
-        artists = [*path_lines, *body_circles, q]
-            
-        return artists
+
+    def on_close(event):
+        global stop_simulation
+        stop_simulation = True
+        print("Figure closed, stopping simulation.")
     
-    ani = animation.FuncAnimation(fig, update, frames=2000, interval=1, blit=True)
+    fig.canvas.mpl_connect('close_event', on_close)
+
+    stop_simulation = False    
+
+    for frame in range(200):
+        
+        # Stop if figure is closed
+        if stop_simulation:
+            print("I'm stopping now")
+            break
+        Body.timestep(time_step = dt)
+        update_plot(path_lines, ships, bodies, body_circles, q, window)
+        plt.pause(0.001)  # Small pause to update plot
 
     # ani.save('simple_path_test.gif', dpi=100, writer='pillow')
-    plt.show() 
+    # plt.show() 
     print('Fuel Spent:',ships[0].fuel_spent)
 
     

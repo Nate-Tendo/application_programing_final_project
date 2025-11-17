@@ -132,6 +132,7 @@ class Body:
         new_velocity = self.velocity + (1/2)*(total_accel + new_total_accel_n_plus_1)*time_step
         self.velocity = new_velocity
         return
+    
     @staticmethod
     def timestep(time_step = 0.1):
         dynamic_bodies = [body for body in Body._instances if body.is_dynamically_updated == True]
@@ -202,6 +203,16 @@ class Spacecraft(Body):
         self.is_target = is_target
         self.navigation_strategy = 'none' # control law
         self.desired_path = None
+        # Direction PID
+        self.mpid_integral_dir = 0.0
+        self.mpid_last_error_dir = 0.0
+        # Magnitude PID
+        self.mpid_integral_mag = 0.0
+        self.mpid_last_error_mag = 0.0
+
+        # momentum setpoint (tune this)
+        self.mpid_setpoint = 2000.0   # example
+
         
         
         self.ics = (self.position.copy(),self.velocity.copy()) # initial conditions
@@ -215,8 +226,6 @@ class Spacecraft(Body):
         self.thrust_mag = np.linalg.norm(self.thrust)
         
         # For debugging and plotting
-
-
 
         if self.name == 'target' and not self.is_target:
             raise ValueError("Spacecraft named 'target' must have is_target=True")
@@ -246,11 +255,11 @@ class Spacecraft(Body):
             K_d = 0.3
             
             ship_thrust = -accel_from_planets - K_p * e - K_d * e_dot
-        if self.navigation_strategy == 'potential_field':
-            k_att = 1.0      # attractive gain (accel per unit distance)
-            k_rep = 5000.0   # repulsive gain (scale of repulsion)
-            d0 = 50.0        # influence radius of obstacles (any body closer than d0 repels)
-            soft = 1e-6
+            print(ship_thrust)
+        elif self.navigation_strategy == 'potential_field':
+            k_att = 0.90      # attractive gain (accel per unit distance)
+            k_rep = 1.0   # repulsive gain (scale of repulsion)
+            d0 = 1000.0        # influence radius of obstacles (any body closer than d0 repels)
             # Add mass scaling
 
             target = None
@@ -267,7 +276,7 @@ class Spacecraft(Body):
                 # Attractive acceleration
                 pos = self.position
                 dir_to_goal = target.position - pos
-                dist_to_goal = np.linalg.norm(dir_to_goal) + soft
+                dist_to_goal = np.linalg.norm(dir_to_goal)
                 att_accel = k_att * dir_to_goal  # direction * distance * k_att
 
                 # Repulsive acceleration 
@@ -280,9 +289,10 @@ class Spacecraft(Body):
                         continue
                     vec = pos - body.position
                     dist = np.linalg.norm(vec)
-                    if dist < (body.radius * 5): # If overlapping, create a large immediate repulsion
+                    if dist < (body.radius * 10): # If overlapping, create a large immediate repulsion
                         repulse = (vec + 1e-3) * k_rep * 10.0
                         rep_accel += repulse
+                        print('ah')
                         continue
                     if dist <= d0:
                         # unit vector away from obstacle
@@ -290,29 +300,103 @@ class Spacecraft(Body):
                         # magnitude: k_rep * (1/d - 1/d0)
                         mag = k_rep * (1.0/dist - 1.0/d0)
                         rep_accel += u * mag
+                        print('oh')
 
                 # Desired guidance acceleration (combine)
                 desired_accel = att_accel + rep_accel
 
-            # Convert desired_accel (m/s^2) to a thrust vector (force): F = m * a
-            thrust_needed_vec = desired_accel * self.mass  # force vector
-            thrust_needed_mag = np.linalg.norm(thrust_needed_vec)
-            if thrust_needed_mag > self.max_thrust and self.max_thrust > 0:
-                thrust_vec = thrust_needed_vec / thrust_needed_mag * self.max_thrust
-            else:
-                thrust_vec = thrust_needed_vec
+                v = self.velocity
+                v_mag = np.linalg.norm(v)
+                if v_mag < 1e-8:
+                    v_dir = np.array([0.0, 0.0])
+                else:
+                    v_dir = v / v_mag
 
-            # Finally convert thrust vector to acceleration from propulsion 
-            ship_thrust_accel = thrust_vec / (self.mass if self.mass != 0 else 1.0)
-            ship_thrust = thrust_vec  # keep the force vector for fuel accounting
-            print(ship_thrust)
+                # Normalize desired direction
+                da_mag = np.linalg.norm(desired_accel)
+                if da_mag < 1e-8:
+                    desired_dir = v_dir
+                else:
+                    desired_dir = desired_accel / da_mag
+
+
+                # MOMENTUM–DIRECTION PID (STEERING)
+                # Signed angular error between desired_dir and v_dir
+                angle_error = np.arctan2(
+                    v_dir[0] * desired_dir[1] - v_dir[1] * desired_dir[0],
+                    np.dot(v_dir, desired_dir)
+                )
+
+                Kp_turn = 2.0
+                Ki_turn = 0.05
+                Kd_turn = 0.5
+
+                self.mpid_integral_dir += angle_error
+
+                d_angle = angle_error - self.mpid_last_error_dir
+                self.mpid_last_error_dir = angle_error
+
+                # Turn command (scalar)
+                turn_cmd = (
+                    Kp_turn * angle_error +
+                    Ki_turn * self.mpid_integral_dir +
+                    Kd_turn * d_angle
+                )
+
+                # Perpendicular direction (90° rotated)
+                if v_mag > 1e-6:
+                    perp = np.array([-v_dir[1], v_dir[0]])
+                    a_turn = turn_cmd * perp
+                else:
+                    a_turn = np.array([0.0, 0.0])
+
+                # 3. MOMENTUM–MAGNITUDE PID (SPEED LIMITING)
+                momentum = self.mass * v_mag
+                error_m = self.mpid_setpoint - momentum   # positive = too slow, negative = too fast
+
+                Kp_spd = 0.01
+                Ki_spd = 0.0001
+                Kd_spd = 0.005
+
+                self.mpid_integral_mag += error_m
+
+                d_error_m = error_m - self.mpid_last_error_mag
+                self.mpid_last_error_mag = error_m
+
+                # scalar output
+                spd_cmd = (
+                    Kp_spd * error_m +
+                    Ki_spd * self.mpid_integral_mag +
+                    Kd_spd * d_error_m
+                )
+
+                # speed control acceleration:
+                #   - when momentum > setpoint → spd_cmd < 0 → brake opposite v_dir
+                #   - when momentum < setpoint → spd_cmd > 0 → allow some boost along v_dir
+                if v_mag > 1e-6:
+                    a_speed = v_dir * spd_cmd
+                else:
+                    a_speed = np.array([0.0, 0.0])
+
+                final_desired_accel = desired_accel + a_turn + a_speed
+
+                # Convert to thrust
+                thrust_vec = final_desired_accel * self.mass
+                thrust_mag = np.linalg.norm(thrust_vec)
+
+                # clamp
+                if thrust_mag > self.max_thrust > 0:
+                    thrust_vec = thrust_vec / thrust_mag * self.max_thrust
+
+                ship_thrust = thrust_vec
+
+                print(ship_thrust)
         elif self.navigation_strategy == 'thrust_towards_target':
             ship_thrust = self.propulsion_acceleration(self.max_thrust, self.orientation)
         elif self.navigation_strategy == 'counteract_gravity':
             pass
             # Fill this in
         elif self.navigation_strategy == 'path-follow':
-            
             pass
             # fill this in
         else:
@@ -321,50 +405,3 @@ class Spacecraft(Body):
         if thrust_mag > self.max_thrust:
             ship_thrust = self.max_thrust
         return ship_thrust
-    
-    # def step_forward_dt(self, time_step = 0.1):
-        
-    #     # Use Velocity Verlet Numerical Integration
-    #     for ship in Spacecraft._instances:
-    #         if ship.is_target and ship is not self:
-    #             self.orientation = np.arctan2(
-    #                 ship.position[1] - self.position[1],
-    #                 ship.position[0] - self.position[0]
-    #             )
-
-    #     accel_from_planets = self.compute_total_current_acceleration_from_bodies()
-    #     self.accel_from_planets = accel_from_planets
-
-    #     thrust = self.thrust_ctrl_law(accel_from_planets)
-
-    #     # Track fuel spent
-    #     self.fuel_spent += (np.linalg.norm(thrust) * self.mass) * time_step
-
-    #     # Apply total acceleration (gravity + thrust)
-    #     total_accel = accel_from_planets + thrust
-    #     self.total_accel = total_accel
-    #     new_position = self.position + self.velocity*time_step + 0.5*total_accel*(time_step**2)
-        
-    #     # BEFORE WE SET THSI NEW POSITION, WE WANT TO CHECK IF WE'VE HIT ANYTHING..
-    #     # Taking some inspiration from Chat-GPT, but this is going to be quite computationally expensive...
-    #     for body in Body._instances:
-    #         if body is self:
-    #             continue
-    #         if segment_circle_intersect(self.position, new_position, body.position, body.radius): #Remember that position.v is the position vector!
-    #             self.is_crashed = True
-    #             print(f"Crash between {self.name} and {body.name}")
-        
-    #     # For debugging and plotting
-        
-    #     self.thrust = thrust
-    #     self.thrust_mag = np.linalg.norm(thrust)
-    #     self.position = new_position
-        
-    #     new_accel_from_planets = self.compute_total_current_acceleration_from_bodies()
-        
-    #     new_total_accel_n_plus_1 = new_accel_from_planets + thrust
-    #     new_velocity = self.velocity + (1/2)*(total_accel + new_total_accel_n_plus_1)*time_step
-    #     self.velocity = new_velocity
-    #     self.path = np.append(self.path, [self.position.copy()], axis=0)
-
-    #     return None
