@@ -255,204 +255,261 @@ class Spacecraft(Body):
         ay = thrust_magnitude * np.sin(thrust_direction) / self.mass
         return np.array([ax,ay])
     
-    def thrust_ctrl_law(self,g): # Determines the control strategy the ship will use
+    def _find_target(self):
+        for ship in Spacecraft._instances:
+            if ship.is_target and ship is not self:
+                return ship
+        return None
+
+    def _repulsive_accel(self, pos, repulsion_factor=10.0, k_rep=1.5e5):
+        """Shared obstacle repulsion (returns acceleration)."""
+        a_rep = np.zeros(2, dtype=float)
+        obstacles = [b for b in Body._instances if not isinstance(b, Spacecraft)]
+        for body in obstacles:
+            vec = pos - body.position
+            d = np.linalg.norm(vec)
+            if d < 1e-9:
+                continue
+
+            safe_zone = body.radius * repulsion_factor
+
+            # If we somehow get inside the body radius, huge push out
+            if d < body.radius:
+                print('bad')
+                a_rep += (vec / d) * 5e3
+                continue
+
+            if d < safe_zone:
+                # classic repulsive field, scaled by distance and safe_zone
+                print('pushing')
+                a_rep += k_rep * (1.0 / d - 1.0 / safe_zone) * (1.0 / (d**2)) * (vec / d)
+        return a_rep
+
+    def thrust_ctrl_law(self, g):
+        """
+        Returns thrust ACCELERATION vector in world frame.
+
+        g: gravitational acceleration on this body from other bodies (np.array shape (2,))
+        """
         match self.nav_strat:
-            case 'stay_put': # Stay put in the starting position
+            # -------------------------------------------------
+            # 1. existing modes (unchanged)
+            # -------------------------------------------------
+            case 'stay_put':
                 ground = self.i_p
                 e = self.position - ground
                 e_dot = self.velocity - 0
-                
+
                 K_p = 0.2
                 K_d = 0.3
-                
                 ship_thrust = -g - K_p * e - K_d * e_dot
+
             case 'thrust_towards_target':
                 ship_thrust = self.propulsion_acceleration(self.max_thrust, self.orientation)
-            case 'counteract_gravity':
-                pass
-                # Fill this in
-            case 'line_follow': # Follow a linear path from start to end then stay put 
-               # Functionality must include both
-               # - Ability to get back onto the path when it moves off
-               # - Ability to slow down as it approaches the end point
-               # - Ability to use gravity to move us towards the end to reduce thrust usage
-           
-               # Control components: 1) cancel tangent gravity, 2) move along path, 3)
-    
-               n = self.path_unitvec
-               g_tan = np.dot(g,n)*n
-               g_norm = g - g_tan
-               
-               d_vec = self.position - self.path_start
-               d = np.linalg.norm(d_vec)
-               
-               v_tan = np.dot(self.velocity,n)*n
-               v_norm = self.velocity - v_tan
-               
-               e = self.path_end-self.position
-               e_tan = np.dot(e,n)*n
-               e_norm = e-e_tan
-               
-    
-               if np.linalg.norm(e_tan)<10: # once we are near, stay put
-                   ground = self.path_end
-                   e = self.position - ground
-                   e_dot = self.velocity - 0
-                   K_p = 0.1
-                   K_d = 0.3
-                   ship_thrust = -g - K_p * e - K_d * e_dot - K_d * v_norm
-               else:
-                   K_p_norm  = 0.02
-                   K_d_norm  = 0.25
-                   K_d_tan   = 0.002
-                   additional_thrust = -K_p_norm*e_norm + K_d_norm*v_norm + K_d_tan*v_tan      
-                   
-                   # Removes the normal component of gravity so gravity can assist us along the path
-                   ship_thrust = -g_norm - additional_thrust
-            case 'path_follow': # Follow an arbitrary spline from start to end then stay put
-                
-                
-                thrust = 1
-                # fill this in
-            case 'potential_field':
-                k_att = 0.90      # attractive gain (accel per unit distance)
-                k_rep = 1.0   # repulsive gain (scale of repulsion)
-                d0 = 1000.0        # influence radius of obstacles (any body closer than d0 repels)
-                # Add mass scaling
 
-                target = None
-                # finding the target
-                for ship in Spacecraft._instances:
-                    if ship.is_target and ship is not self:
-                        target = ship
-                        break
+            case 'line_follow':
+                n = self.path_unitvec
+                g_tan = np.dot(g, n) * n
+                g_norm = g - g_tan
 
-                if target is None:
-                    desired_accel = np.array([0.0, 0.0])
-                    print('No Target Found')
+                d_vec = self.position - self.path_start
+                d = np.linalg.norm(d_vec)
+
+                v_tan = np.dot(self.velocity, n) * n
+                v_norm = self.velocity - v_tan
+
+                e = self.path_end - self.position
+                e_tan = np.dot(e, n) * n
+                e_norm = e - e_tan
+
+                if np.linalg.norm(e_tan) < 10:
+                    ground = self.path_end
+                    e = self.position - ground
+                    e_dot = self.velocity - 0
+                    K_p = 0.1
+                    K_d = 0.3
+                    ship_thrust = -g - K_p * e - K_d * e_dot - K_d * v_norm
                 else:
-                    # Attractive acceleration
+                    K_p_norm = 0.02
+                    K_d_norm = 0.25
+                    K_d_tan = 0.002
+                    additional_thrust = -K_p_norm * e_norm + K_d_norm * v_norm + K_d_tan * v_tan
+                    ship_thrust = -g_norm - additional_thrust
+
+            # -------------------------------------------------
+            # 2. IMPROVED POTENTIAL FIELD (with tangential braking)
+            # -------------------------------------------------
+            case 'potential_field':
+                target = self._find_target()
+                if target is None:
+                    ship_thrust = -g  # just hover if no target
+                else:
                     pos = self.position
+                    vel = self.velocity
+
+                    # Attractive accel
+                    k_att = 0.0025
                     dir_to_goal = target.position - pos
                     dist_to_goal = np.linalg.norm(dir_to_goal)
-                    att_accel = k_att * dir_to_goal  # direction * distance * k_att
-
-                    # Repulsive acceleration 
-                    rep_accel = np.array([0.0, 0.0])
-                    for body in Body._instances:
-                        if body is self:
-                            continue
-                        # treat target as not an obstacle for repulsion (optional)
-                        if isinstance(body, Spacecraft) and body.is_target:
-                            continue
-                        vec = pos - body.position
-                        dist = np.linalg.norm(vec)
-                        if dist < (body.radius * 10): # If overlapping, create a large immediate repulsion
-                            repulse = (vec + 1e-3) * k_rep * 10.0
-                            rep_accel += repulse
-                            print('ah')
-                            continue
-                        if dist <= d0:
-                            # unit vector away from obstacle
-                            u = vec / dist
-                            # magnitude: k_rep * (1/d - 1/d0)
-                            mag = k_rep * (1.0/dist - 1.0/d0)
-                            rep_accel += u * mag
-                            print('oh')
-
-                    # Desired guidance acceleration (combine)
-                    desired_accel = att_accel + rep_accel
-
-                    v = self.velocity
-                    v_mag = np.linalg.norm(v)
-                    if v_mag < 1e-8:
-                        v_dir = np.array([0.0, 0.0])
+                    if dist_to_goal < 1e-6:
+                        a_att = np.zeros(2)
                     else:
-                        v_dir = v / v_mag
+                        a_att = k_att * dir_to_goal
 
-                    # Normalize desired direction
-                    da_mag = np.linalg.norm(desired_accel)
-                    if da_mag < 1e-8:
-                        desired_dir = v_dir
-                    else:
-                        desired_dir = desired_accel / da_mag
+                    # Repulsion
+                    a_rep = self._repulsive_accel(pos, repulsion_factor=15.0, k_rep=1.5e7)
+                    # print(a_rep)
 
+                    # Combine
+                    a_des = a_att + a_rep
 
-                    # MOMENTUM–DIRECTION PID (STEERING)
-                    # Signed angular error between desired_dir and v_dir
-                    angle_error = np.arctan2(
-                        v_dir[0] * desired_dir[1] - v_dir[1] * desired_dir[0],
-                        np.dot(v_dir, desired_dir)
-                    )
+                    # Tangential braking near goal
+                    slow_radius = 300.0
+                    brake_gain = 0.4
+                    v = vel
+                    vmag = np.linalg.norm(v)
 
-                    Kp_turn = 2.0
-                    Ki_turn = 0.05
-                    Kd_turn = 0.5
+                    if dist_to_goal < slow_radius and vmag > 1e-6:
+                        v_hat = v / vmag
+                        a_des += -brake_gain * v_hat * min(vmag, 50.0)
 
-                    self.mpid_integral_dir += angle_error
+                    # Optional speed limiting
+                    vmax = 35.0
+                    if vmag > vmax and vmag > 1e-6:
+                        a_des += -(v / vmag) * 0.03 * (vmag - vmax)
 
-                    d_angle = angle_error - self.mpid_last_error_dir
-                    self.mpid_last_error_dir = angle_error
-
-                    # Turn command (scalar)
-                    turn_cmd = (
-                        Kp_turn * angle_error +
-                        Ki_turn * self.mpid_integral_dir +
-                        Kd_turn * d_angle
-                    )
-
-                    # Perpendicular direction (90° rotated)
-                    if v_mag > 1e-6:
-                        perp = np.array([-v_dir[1], v_dir[0]])
-                        a_turn = turn_cmd * perp
-                    else:
-                        a_turn = np.array([0.0, 0.0])
-
-                    # 3. MOMENTUM–MAGNITUDE PID (SPEED LIMITING)
-                    momentum = self.mass * v_mag
-                    error_m = self.mpid_setpoint - momentum   # positive = too slow, negative = too fast
-
-                    Kp_spd = 0.01
-                    Ki_spd = 0.0001
-                    Kd_spd = 0.005
-
-                    self.mpid_integral_mag += error_m
-
-                    d_error_m = error_m - self.mpid_last_error_mag
-                    self.mpid_last_error_mag = error_m
-
-                    # scalar output
-                    spd_cmd = (
-                        Kp_spd * error_m +
-                        Ki_spd * self.mpid_integral_mag +
-                        Kd_spd * d_error_m
-                    )
-
-                    # speed control acceleration:
-                    #   - when momentum > setpoint → spd_cmd < 0 → brake opposite v_dir
-                    #   - when momentum < setpoint → spd_cmd > 0 → allow some boost along v_dir
-                    if v_mag > 1e-6:
-                        a_speed = v_dir * spd_cmd
-                    else:
-                        a_speed = np.array([0.0, 0.0])
-
-                    final_desired_accel = desired_accel + a_turn #+ a_speed
-                    self.accel = a_turn
-
-                    # Convert to thrust
-                    thrust_vec = final_desired_accel * self.mass
-                    thrust_mag = np.linalg.norm(thrust_vec)
-
-                    # clamp
-                    if thrust_mag > self.max_thrust > 0:
-                        thrust_vec = thrust_vec / thrust_mag * self.max_thrust
-
-                    ship_thrust = thrust_vec
-
+                    # This is total desired acceleration; we don't cancel gravity here,
+                    # so thrust accel is just a_des (Body.timestep already adds g separately).
+                    ship_thrust = a_des
                     print(ship_thrust)
-            case __:
-                ship_thrust = np.array([0.0,0.0])
-        thrust_mag = np.linalg.norm(ship_thrust)
-        if thrust_mag > self.max_thrust and thrust_mag > 0:
-                ship_thrust = ship_thrust / thrust_mag * self.max_thrust
-        return ship_thrust
+
+            # -------------------------------------------------
+            # 3. LYAPUNOV-STABLE PD CONTROLLER (with gravity comp.)
+            #    V = 0.5||e||^2 + 0.5||v||^2
+            # -------------------------------------------------
+            case 'lyapunov_pd':
+                target = self._find_target()
+                if target is None:
+                    ship_thrust = -g
+                else:
+                    e = self.position - target.position          # position error
+                    v = self.velocity - target.velocity          # velocity error
+
+                    k_p = 0.001
+                    k_v = 0.05
+
+                    # desired total acceleration (including gravity & thrust)
+                    a_total_des = -k_p * e - k_v * v + self._repulsive_accel(self.position)
+
+                    # Body.timestep will do total = g + thrust,
+                    # so thrust accel must be a_total_des - g
+                    ship_thrust = a_total_des - g
+
+            # -------------------------------------------------
+            # 4. LYAPUNOV + NONLINEAR DAMPING
+            #    adds term -k_v2 ||v|| v to kill hunting
+            # -------------------------------------------------
+            case 'lyapunov_nonlinear':
+                target = self._find_target()
+                if target is None:
+                    ship_thrust = -g
+                else:
+                    e = self.position - target.position
+                    v = self.velocity - target.velocity
+
+                    k_p = 0.001
+                    k_v_lin = 0.03
+                    k_v_nl = 0.01   # nonlinear damping gain
+
+                    vmag = np.linalg.norm(v)
+                    if vmag > 1e-6:
+                        v_hat = v / vmag
+                        a_damp_nl = -k_v_nl * (vmag**2) * v_hat
+                    else:
+                        a_damp_nl = np.zeros(2)
+
+                    a_total_des = -k_p * e - k_v_lin * v + a_damp_nl + self._repulsive_accel(self.position)
+
+                    ship_thrust = a_total_des - g
+
+            # -------------------------------------------------
+            # 5. NAVIGATION FUNCTION CONTROLLER
+            #    Global minimum at goal, obstacles as “maxima”
+            # -------------------------------------------------
+            case 'nav_function':
+                target = self._find_target()
+                if target is None:
+                    ship_thrust = -g
+                else:
+                    q = self.position
+                    qd = target.position
+
+                    e = q - qd
+                    num = np.dot(e, e)
+
+                    # obstacle β(q)
+                    obstacles = [b for b in Body._instances if not isinstance(b, Spacecraft)]
+                    betas = []
+                    diffs = []
+                    radii = []
+                    repulsion_factor = 8.0
+
+                    for body in obstacles:
+                        diff = q - body.position
+                        d2 = np.dot(diff, diff)
+                        R = body.radius * repulsion_factor
+                        bi = d2 - R**2
+                        betas.append(bi)
+                        diffs.append(diff)
+                        radii.append(R)
+
+                    if betas:
+                        beta = 1.0
+                        for bi in betas:
+                            beta *= bi
+
+                        # grad β(q)
+                        grad_beta = np.zeros(2)
+                        for i in range(len(betas)):
+                            bi = betas[i]
+                            diff_i = diffs[i]
+                            grad_bi = 2.0 * diff_i
+
+                            prod_others = 1.0
+                            for j in range(len(betas)):
+                                if j == i:
+                                    continue
+                                prod_others *= betas[j]
+                            grad_beta += grad_bi * prod_others
+                    else:
+                        beta = 1.0
+                        grad_beta = np.zeros(2)
+
+                    k_nav = 1.0
+                    den = num + k_nav * beta
+                    if den < 1e-6:
+                        ship_thrust = -g
+                    else:
+                        grad_num = 2.0 * e
+                        grad_den = grad_num + k_nav * grad_beta
+                        grad_phi = (grad_num * den - num * grad_den) / (den**2)
+
+                        k_phi = 0.5
+                        a_total_des = -k_phi * grad_phi   # gradient descent on nav function
+
+                        ship_thrust = a_total_des - g
+
+            # -------------------------------------------------
+            # 6. default
+            # -------------------------------------------------
+            case _:
+                ship_thrust = np.array([0.0, 0.0])
+
+        # ------------ GLOBAL ACCELERATION LIMIT -------------
+        a = ship_thrust
+        a_mag = np.linalg.norm(a)
+        if self.max_thrust > 0:
+            a_max = self.max_thrust / self.mass
+            if a_mag > a_max and a_mag > 0:
+                a = a / a_mag * a_max
+        return a

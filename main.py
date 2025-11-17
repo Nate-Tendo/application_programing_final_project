@@ -53,33 +53,47 @@ def compute_line_gravity_cost(x_coords: np.ndarray, y_coords: np.ndarray):
 
     return total_vector, line_vectors, total_magnitude
 
-def plot_universe(ax, window = 100): 
+def plot_universe(ax, window=100, repulsion_factor=10.0): 
     ax.set_facecolor('black')
     
-    # Set Grid and Ticks
-    # ax.grid(True, which='both', color='white', alpha=0.25, linewidth=0.8, zorder=-3)
     ax.set_xticklabels([])
     ax.set_yticklabels([])
     ax.set_frame_on(False)
     ax.tick_params(tick1On=False)
-    locator = MultipleLocator(window/10)
+    locator = MultipleLocator(window / 10)
     ax.xaxis.set_major_locator(locator)
     ax.yaxis.set_major_locator(locator)
     
-    # TODO separate the static vs dyanmic bodies to prevent redraws
     colors_bodies = [body.color for body in Body._instances]
     body_circles = []
+    shadow_circles = []
+
     for body in Body._instances:
-        circle = plt.Circle((body.x, body.y), body.radius, color=body.color)
+        # main body disk
+        circle = plt.Circle((body.x, body.y), body.radius, color=body.color, zorder=3)
         ax.add_patch(circle)
         body_circles.append(circle)
-    
-    # Limits and Padding
+
+        # gravitational / repulsive “shadow” (only for non-spacecraft)
+        if not isinstance(body, Spacecraft):
+            safe_zone = body.radius * repulsion_factor
+            shadow = plt.Circle(
+                (body.x, body.y),
+                safe_zone,
+                color='red',
+                alpha=0.08,
+                lw=1.0,
+                fill=True,
+                zorder=1,
+            )
+            ax.add_patch(shadow)
+            shadow_circles.append(shadow)
+
     ax.set_aspect('equal', adjustable='box')
-    ax.set(xlim = [-window,window],ylim=[-window,window]) # TODO set max environment in a more intuitive way
+    ax.set(xlim=[-window, window], ylim=[-window, window])
     plt.tight_layout(pad=0.5)
 
-    return body_circles
+    return body_circles, shadow_circles
 
 def make_on_key(ship):
     def on_key(event):
@@ -211,9 +225,9 @@ if __name__ == "__main__":
     # ============================================================================================================
     #                   S I M U L A T I O N       S E T U P
     # ============================================================================================================
-    scenario = '2b_figure8'
+    scenario = '1'
     plotVectorField = True
-    navigationStrategy = 'line_follow'
+    navigationStrategy = 'potential_field'
     followPath = (-300,220)
     dt = 1
     # =============================================================================================================
@@ -235,7 +249,7 @@ if __name__ == "__main__":
     X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
 
     # Initial Plotting
-    body_circles = plot_universe(ax,window)
+    body_circles, shadow_circles = plot_universe(ax, window, repulsion_factor=10.0)
     if plotVectorField == True:
         q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
     
@@ -280,6 +294,11 @@ if __name__ == "__main__":
             if body.is_dynamically_updated:
                 circle.center = (body.x, body.y)
         
+        # Update shadow rings
+        for shadow, body in zip(shadow_circles, [b for b in Body._instances if not isinstance(b, Spacecraft)]):
+            if body.is_dynamically_updated:
+                shadow.center = (body.x, body.y)
+
         if ships:
             qv,qt,qa = body_vectors([ships[0]])
             if mainship.velocity_vec == True:
