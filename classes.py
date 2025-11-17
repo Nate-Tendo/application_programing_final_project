@@ -125,8 +125,8 @@ class Body:
         return accel_vec
     
     # Velocity Verlet Numerical Integration -  computes each step for all bodies to avoid violating conservation of momentum   
-    # @staticmethod
-    def timestep(self, time_step = 1):
+    @staticmethod
+    def timestep(time_step = 1):
         dynamic_bodies = [body for body in Body._instances if body.is_dynamically_updated == True]
         
         # Using dictionaries to index off body name to avoid array index errors
@@ -187,7 +187,7 @@ class Spacecraft(Body):
 
     def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, 
                  orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False,
-                 velocity_vec = False, thrust_vec = False):
+                 velocity_vec = False, thrust_vec = False, acc_vec = False):
         super().__init__(name, mass, position, velocity, color, radius, is_dynamically_updated)
         self.max_thrust = thrust
         self.orientation = orientation  # radians
@@ -198,6 +198,8 @@ class Spacecraft(Body):
         self.navigation_strategy = 'none' # control law
         self.desired_path = None
         self.accel = np.array([0.0,0.0]) #for debugging
+        self.nav_strat = 'none' # control law
+        self.path_follow = None
         # Direction PID
         self.mpid_integral_dir = 0.0
         self.mpid_last_error_dir = 0.0
@@ -256,12 +258,12 @@ class Spacecraft(Body):
     def thrust_ctrl_law(self,g): # Determines the control strategy the ship will use
         match self.nav_strat:
             case 'stay_put': # Stay put in the starting position
-                ground = np.array(self.i_p)
+                ground = self.i_p
                 e = self.position - ground
                 e_dot = self.velocity - 0
                 
-                K_p = 0.3
-                K_d = 0.2
+                K_p = 0.2
+                K_d = 0.3
                 
                 ship_thrust = -g - K_p * e - K_d * e_dot
             case 'thrust_towards_target':
@@ -270,53 +272,43 @@ class Spacecraft(Body):
                 pass
                 # Fill this in
             case 'line_follow': # Follow a linear path from start to end then stay put 
-                # Functionality must include both
-                # - Ability to get back onto the path when it moves off
-                # - Ability to slow down as it approaches the end point
-                # - Ability to use gravity to move us towards the end to reduce thrust usage
-            
-                # Control components: 1) cancel tangent gravity, 2) move along path, 3)
-            
-                n = self.path_unitvec
-                g_tan = np.dot(g,n)*n
-                g_norm = g - g_tan
-                
-                d_vec = self.position - self.path_start
-                d = np.linalg.norm(d_vec)
-                
-                v_tan = np.dot(self.velocity,n)*n
-                v_norm = self.velocity - v_tan
-                
-                # Define coordinate as projection of position vector onto path unit vector
-                s = np.dot(d_vec, n)
-                
-                # Bottoms out the coordinate if it is less than 0 or more than L
-                s_coord = np.clip(s,0,self.path_len)
-                    
-                p_near = s - s_coord
-                
-                e = self.position-self.path_end
-                e_tan = np.dot(e,n)*n
-                e_norm = e-e_tan
-                
-                # if v_tan !=0
-                                               
-                if np.linalg.norm(e_tan)<10: # once we are near, stay put
-                    ground = self.path_end
-                    e = self.position - ground
-                    e_dot = self.velocity - 0
-                    
-                    K_p = 0.3
-                    K_d = 0.2
-                    
-                    ship_thrust = -g - K_p * e - K_d * e_dot
-                else:
-                    K_p = 0.1
-                    K_d = 0.1
-                    additional_thrust = -K_p*e_norm               
-                    
-                    # Removes the normal component of gravity so gravity can assist us along the path
-                    ship_thrust = -g_norm + additional_thrust
+               # Functionality must include both
+               # - Ability to get back onto the path when it moves off
+               # - Ability to slow down as it approaches the end point
+               # - Ability to use gravity to move us towards the end to reduce thrust usage
+           
+               # Control components: 1) cancel tangent gravity, 2) move along path, 3)
+    
+               n = self.path_unitvec
+               g_tan = np.dot(g,n)*n
+               g_norm = g - g_tan
+               
+               d_vec = self.position - self.path_start
+               d = np.linalg.norm(d_vec)
+               
+               v_tan = np.dot(self.velocity,n)*n
+               v_norm = self.velocity - v_tan
+               
+               e = self.path_end-self.position
+               e_tan = np.dot(e,n)*n
+               e_norm = e-e_tan
+               
+    
+               if np.linalg.norm(e_tan)<10: # once we are near, stay put
+                   ground = self.path_end
+                   e = self.position - ground
+                   e_dot = self.velocity - 0
+                   K_p = 0.1
+                   K_d = 0.3
+                   ship_thrust = -g - K_p * e - K_d * e_dot - K_d * v_norm
+               else:
+                   K_p_norm  = 0.02
+                   K_d_norm  = 0.25
+                   K_d_tan   = 0.002
+                   additional_thrust = -K_p_norm*e_norm + K_d_norm*v_norm + K_d_tan*v_tan      
+                   
+                   # Removes the normal component of gravity so gravity can assist us along the path
+                   ship_thrust = -g_norm - additional_thrust
             case 'path_follow': # Follow an arbitrary spline from start to end then stay put
                 
                 

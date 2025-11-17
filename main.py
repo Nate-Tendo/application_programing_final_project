@@ -175,6 +175,7 @@ def body_vectors(bodies,t_scaling=5000,v_scaling=5000):
             else:
                 accel_vel = {'x':[x], 'y':[y],'dx_a':[0], 'dy_a':[0]}
                 thr_vec = {'x':[x], 'y':[y],'dx':[0], 'dy':[0]}
+    
     return vel_vec, thr_vec, accel_vel
 
 r = np.arange(-2,4,0.01)
@@ -210,9 +211,9 @@ if __name__ == "__main__":
     # ============================================================================================================
     #                   S I M U L A T I O N       S E T U P
     # ============================================================================================================
-    scenario = '1'
+    scenario = '2b_figure8'
     plotVectorField = True
-    navigationStrategy = 'potential_field'
+    navigationStrategy = 'line_follow'
     followPath = (-300,220)
     dt = 1
     # =============================================================================================================
@@ -221,6 +222,7 @@ if __name__ == "__main__":
     follow_line = None
     q_v = None
     q_t = None
+    q_a = None
     ships = Spacecraft._instances
     bodies = Body._instances
     bounds = initialize_universe(scenario)
@@ -249,7 +251,7 @@ if __name__ == "__main__":
         if mainship.thrust_vec == True:
             q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale=1, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
             q_a = ax.quiver(qa['x'],qa['y'],qa['dx_a'],qa['dy_a'], scale=1, angles='xy', scale_units='xy', color = 'yellow', pivot = 'tail', zorder = 4)
-        if mainship.thrust_vec == True:
+        if mainship.velocity_vec == True:
             q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale=1, angles='xy', scale_units='xy', color = 'skyblue', pivot = 'tail', zorder = 4)
     
     path_lines = []
@@ -258,8 +260,7 @@ if __name__ == "__main__":
 
     def update(frame):
         # Always compute physics each frame
-        Body.timestep(dt)
-               
+        Body.timestep(time_step = dt)
         for i, path in enumerate(path_lines):
             path.set_data(ships[i].path[:,0],ships[i].path[:,1])
             # if ships[i].is_crashed:
@@ -267,41 +268,40 @@ if __name__ == "__main__":
             #     for ship in ships:
             #         ship.is_dynamically_updated = False
         
-        if frame % 1 == 0:
-            # Update vector field if any bodies are dynamic
-            if plotVectorField == True:
-                if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in bodies):   
-                    X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
-                    q.set_UVC(U, V)
-                    q.set_array(M.flatten())
-                    
-            # Update body positions (if they move)
-            for circle, body in zip(body_circles, Body._instances):
-                if body.is_dynamically_updated:
-                    circle.center = (body.x, body.y)
-            
-            if ships:
-                qv,qt,qa = body_vectors([ships[0]])
-                if mainship.velocity_vec == True:
-                    q_v.set_UVC(qv['dx'], qv['dy'])
-                    q_v.set_offsets(np.array([[qv['x'], qv['y']]]))
-                if mainship.thrust_vec == True:
-                    q_t.set_UVC(qt['dx'], qt['dy'])
-                    q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
-                    q_a.set_UVC(qa['dx_a'], qa['dy_a'])
-                    q_a.set_offsets(np.array([[qa['x'], qa['y']]]))
-            
-            pot_artists = [*path_lines, *body_circles, q, follow_line, q_t, q_v,q_a]  
-            
-            artists = [artist for artist in pot_artists if artist is not None]
-            
-            # if frame == 250:
-            #     print('Fuel Spent:',ships[0].fuel_spent)
+        # Update vector field if any bodies are dynamic
+        if plotVectorField == True:
+            if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in bodies):   
+                X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
+                q.set_UVC(U, V)
+                q.set_array(M.flatten())
+                
+        # Update body positions (if they move)
+        for circle, body in zip(body_circles, Body._instances):
+            if body.is_dynamically_updated:
+                circle.center = (body.x, body.y)
+        
+        if ships:
+            qv,qt,qa = body_vectors([ships[0]])
+            if mainship.velocity_vec == True:
+                q_v.set_UVC(qv['dx'], qv['dy'])
+                q_v.set_offsets(np.array([[qv['x'], qv['y']]]))
+            if mainship.thrust_vec == True:
+                q_t.set_UVC(qt['dx'], qt['dy'])
+                q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
+                q_a.set_UVC(qa['dx_a'], qa['dy_a'])
+                q_a.set_offsets(np.array([[qa['x'], qa['y']]]))
+        
+        pot_artists = [*path_lines, *body_circles, q, follow_line, q_t, q_v, q_a]  
+        
+        artists = [artist for artist in pot_artists if artist is not None]
+        
+        # if frame == 250:
+        #     print('Fuel Spent:',ships[0].fuel_spent)
             
         return artists
     
     ani = animation.FuncAnimation(fig, update, frames=100, interval=1, blit=True, repeat=True)
 
-    ani.save('simple_path_test.gif', dpi=100, writer='pillow')
+    # ani.save('flowertest.gif', dpi=100, writer='pillow')
     plt.show() 
     
