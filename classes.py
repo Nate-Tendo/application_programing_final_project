@@ -57,7 +57,8 @@ class Body:
     _index_counter = -999
     # TODO: Make it easier to initialize velocity at 0 (automatically convert 0 -> Vector2(0,0))
     
-    def __init__(self, name: str, mass: float, position: tuple, velocity = (0,0), color = 'blue', radius = 10, is_dynamically_updated = True, velocity_vec = False):
+    def __init__(self, name: str, mass: float, position: tuple, velocity = (0,0), color = 'blue', 
+                 radius = 10, is_dynamically_updated = True, velocity_vec = False):
         self.name = name
         self.mass = mass # could add a density and size alternative instead of just mass
         self.position = np.array(position,dtype=float)
@@ -184,7 +185,9 @@ class Spacecraft(Body):
     _instances = []
     _index_counter = -999
 
-    def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False, velocity_vec = False, thrust_vec = False):
+    def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, 
+                 orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False,
+                 velocity_vec = False, thrust_vec = False):
         super().__init__(name, mass, position, velocity, color, radius, is_dynamically_updated)
         self.max_thrust = thrust
         self.orientation = orientation  # radians
