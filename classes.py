@@ -185,7 +185,7 @@ class Spacecraft(Body):
 
     def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, 
                  orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False,
-                 velocity_vec = False, thrust_vec = False, acc_vec = False):
+                 velocity_vec = False, thrust_vec = False, acc_vec = False, vector_field = True):
         super().__init__(name, mass, position, velocity, color, radius, is_dynamically_updated)
         self.max_thrust = thrust
         self.orientation = orientation  # radians
@@ -219,6 +219,10 @@ class Spacecraft(Body):
         self.thrust_vec = thrust_vec
         self.thrust = np.array([0.0, 0.0])
         self.thrust_mag = np.linalg.norm(self.thrust)
+
+        # This is semi-cheating, but it'll work for now
+        self.plot_vectorfield = vector_field
+        self.path_visible = True
         
         # For debugging and plotting
 
@@ -454,21 +458,22 @@ class Spacecraft(Body):
                 force_boosters = np.array([0.0,0.0])
             
                 if self.list_boosters_on['up'] == 1:
-                    print('up')
+                    
                     force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(90))
                     self.list_boosters_on['up'] = 0
+
                 if self.list_boosters_on['down'] == 1:
-                    print('down')
+                    
                     force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(-90))
                     self.list_boosters_on['down'] = 0
                     
                 if self.list_boosters_on['left'] == 1:
-                    print('left')
+                    
                     force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(180))
                     self.list_boosters_on['left'] = 0
                     
                 if self.list_boosters_on['right'] == 1:
-                    print('right')
+                    
                     force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(0))
                     self.list_boosters_on['right'] = 0
 
