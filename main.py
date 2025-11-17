@@ -229,13 +229,13 @@ def points_spline(x,y,precision=1000, lw=2):
     # dxdt, dydt = splev(ti, tck, der=1)
 
 def reset_simulation():
-    for body, pos, vel in zip(Body._instances, initial_positions, initial_velocities):
-        body.position[:] = pos
-        body.velocity[:] = vel
+    for body in Body._instances:
+        body.position[:] = body.i_p
+        body.velocity[:] = body.i_v
         body.is_crashed = False
-        body.is_dynamically_updated = initial_dynamic_staqte[Body._instances.index(body)]
+        body.is_dynamically_updated = body.i_dynamic_state
     for ship in Spacecraft._instances:
-        ship.path = ship.initial_path.copy()
+        ship.path = ship.i_path
         ship.fuel_spent = 0
         
 if __name__ == "__main__": 
@@ -243,9 +243,9 @@ if __name__ == "__main__":
     # ============================================================================================================
     #                   S I M U L A T I O N       S E T U P
     # ============================================================================================================
-    scenario = '2b_figure8_chase' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
+    scenario = '2' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
     plotVectorField = False
-    navigationStrategy = 'chase' #Options: 'line_follow', 'chase'
+    navigationStrategy = 'potential_field' #Options: 'line_follow', 'chase', 'potential_field','path_follow', 'thrust_towards_target'
     followPath = (-300,220)
     dt = .5
     # =============================================================================================================
@@ -259,13 +259,6 @@ if __name__ == "__main__":
     bodies = Body._instances
     bounds = initialize_universe(scenario)
     window = max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
-
-    # Getting initial state for figure reset
-    initial_positions = [body.position.copy() for body in Body._instances]
-    initial_velocities = [body.velocity.copy() for body in Body._instances]
-    initial_dynamic_staqte = [body.is_dynamically_updated for body in Body._instances]
-    for ship in Spacecraft._instances:
-        ship.initial_path = ship.path.copy()
     
     # PLOTTING #
     # ========== #

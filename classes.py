@@ -83,6 +83,14 @@ class Body:
         else:
             Body._index_counter += 1
 
+        # Move these here so they can be accessed for all bodies
+        self.ics = (self.position.copy(),self.velocity.copy()) # initial conditions
+        self.i_p = self.position.copy() # initial position
+        self.i_v = self.velocity.copy() # initial velocity vector
+        self.i_dynamic_state = self.is_dynamically_updated
+        self.i_path = self.path.copy() # initial path
+
+
     @property
     def x(self):
         return self.position[0]
@@ -208,13 +216,6 @@ class Spacecraft(Body):
         # momentum setpoint (tune this)
         self.mpid_setpoint = 20.0   # example
 
-        
-        
-        self.ics = (self.position.copy(),self.velocity.copy()) # initial conditions
-        self.i_p = self.position.copy() # initial position
-        self.i_v = self.velocity.copy() # initial velocity vector
-
-
         self.velocity_vec = velocity_vec
         self.thrust_vec = thrust_vec
         self.thrust = np.array([0.0, 0.0])
@@ -270,9 +271,7 @@ class Spacecraft(Body):
                 ship_thrust = -g - K_p * e - K_d * e_dot
             case 'thrust_towards_target':
                 ship_thrust = self.propulsion_acceleration(self.max_thrust, self.orientation)
-            case 'counteract_gravity':
-                pass
-                # Fill this in
+
             case 'line_follow': # Follow a linear path from start to end then stay put 
                # Functionality must include both
                # - Ability to get back onto the path when it moves off
