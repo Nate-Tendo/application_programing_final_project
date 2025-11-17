@@ -198,31 +198,28 @@ def points_spline(x,y,precision=1000, lw=2):
     plt.plot(x_new,spl(x_new),zorder=2)
     # dxdt, dydt = splev(ti, tck, der=1)
 
-    q = None
-    follow_line = None
-        
-if __name__ == "__main__":
-    
 
         
+if __name__ == "__main__": 
     
+    # ============================================================================================================
+    #                   S I M U L A T I O N       S E T U P
+    # ============================================================================================================
     scenario = '2b_figure8'
+    plotVectorField = True
+    navigationStrategy = 'line_follow'
+    followPath = (-300,220)
+    dt = 1
+    # =============================================================================================================
+   
+    q = None
+    follow_line = None
+    q_v = None
+    q_t = None
+    ships = Spacecraft._instances
+    bodies = Body._instances
     bounds = initialize_universe(scenario)
     window=max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
-    bodies = Body._instances
-    plotVectorField = True
-    ships = Spacecraft._instances
-    dt = 10
-    if ships:
-        mainship = ships[0]
-        mainship.set_nav_strat('line_follow',(200,-215))
-        # mainship.set_nav_strat('stay_put')
-        '''
-        # mainship.set_nav_strat('path_follow',
-                                 [(),(),(),(),()]
-        '''
-   
-    
    
     # PLOTTING #
     # ========== #
@@ -235,18 +232,19 @@ if __name__ == "__main__":
     if plotVectorField == True:
         q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
     
-    if mainship.nav_strat == 'line_follow':
-      x, y, follow_line = line(mainship.path_start,mainship.path_end,10000)
-
-    # points_spline(, y)
-
-    # parametric_func(f_1,r)
+    if ships:
+        mainship = ships[0]
+        mainship.set_nav_strat(navigationStrategy,followPath)
     
-    qv, qt = body_vectors([mainship])    
-    if mainship.thrust_vec == True:
-        q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale=1, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
-    if mainship.thrust_vec == True:
-        q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale=1, angles='xy', scale_units='xy', color = 'skyblue', pivot = 'tail', zorder = 4)
+        if mainship.nav_strat == 'line_follow':
+          x, y, follow_line = line(mainship.path_start,mainship.path_end,10000)
+
+   
+        qv, qt = body_vectors([mainship])    
+        if mainship.thrust_vec == True:
+            q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale=1, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
+        if mainship.thrust_vec == True:
+            q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale=1, angles='xy', scale_units='xy', color = 'skyblue', pivot = 'tail', zorder = 4)
     
     path_lines = []
     for i, ship in enumerate(ships):
@@ -276,20 +274,21 @@ if __name__ == "__main__":
                 if body.is_dynamically_updated:
                     circle.center = (body.x, body.y)
             
-            qv,qt = body_vectors([ships[0]])
-            if mainship.velocity_vec == True:
-                q_v.set_UVC(qv['dx'], qv['dy'])
-                q_v.set_offsets(np.array([[qv['x'], qv['y']]]))
-            if mainship.thrust_vec == True:
-                q_t.set_UVC(qt['dx'], qt['dy'])
-                q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
+            if ships:
+                qv,qt = body_vectors([ships[0]])
+                if mainship.velocity_vec == True:
+                    q_v.set_UVC(qv['dx'], qv['dy'])
+                    q_v.set_offsets(np.array([[qv['x'], qv['y']]]))
+                if mainship.thrust_vec == True:
+                    q_t.set_UVC(qt['dx'], qt['dy'])
+                    q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
             
-            pot_artists = [*path_lines, *body_circles, q, follow_line,q_t]  
+            pot_artists = [*path_lines, *body_circles, q, follow_line, q_t, q_v]  
             
             artists = [artist for artist in pot_artists if artist is not None]
             
-            if frame == 200:
-                print('Fuel Spent:',ships[0].fuel_spent)
+            # if frame == 250:
+            #     print('Fuel Spent:',ships[0].fuel_spent)
             
         return artists
     
@@ -297,8 +296,4 @@ if __name__ == "__main__":
 
     # ani.save('simple_path_test.gif', dpi=100, writer='pillow')
     plt.show() 
-    # print('Fuel Spent:',ships[0].fuel_spent)
-    # print('Fuel Spent:',ships[0].fuel_spent)
-    
-    ## Philip's Run Section
     

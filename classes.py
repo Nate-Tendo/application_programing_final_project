@@ -254,7 +254,7 @@ class Spacecraft(Body):
                 e_dot = self.velocity - 0
                 
                 K_p = 0.3
-                K_d = 0.2
+                K_d = 0.005
                 
                 ship_thrust = -g - K_p * e - K_d * e_dot
             case 'thrust_towards_target':
@@ -269,7 +269,7 @@ class Spacecraft(Body):
                 # - Ability to use gravity to move us towards the end to reduce thrust usage
             
                 # Control components: 1) cancel tangent gravity, 2) move along path, 3)
-            
+    
                 n = self.path_unitvec
                 g_tan = np.dot(g,n)*n
                 g_norm = g - g_tan
@@ -280,39 +280,28 @@ class Spacecraft(Body):
                 v_tan = np.dot(self.velocity,n)*n
                 v_norm = self.velocity - v_tan
                 
-                # Define coordinate as projection of position vector onto path unit vector
-                s = np.dot(d_vec, n)
-                
-                # Bottoms out the coordinate if it is less than 0 or more than L
-                s_coord = np.clip(s,0,self.path_len)
-                    
-                p_near = s - s_coord
-                
-                e = self.position-self.path_end
+                e = self.path_end-self.position
                 e_tan = np.dot(e,n)*n
                 e_norm = e-e_tan
                 
-                # if v_tan !=0
-                                               
+
                 if np.linalg.norm(e_tan)<10: # once we are near, stay put
                     ground = self.path_end
                     e = self.position - ground
                     e_dot = self.velocity - 0
-                    
-                    K_p = 0.3
-                    K_d = 0.2
-                    
-                    ship_thrust = -g - K_p * e - K_d * e_dot
-                else:
                     K_p = 0.1
-                    K_d = 0.1
-                    additional_thrust = -K_p*e_norm               
+                    K_d = 0.3
+                    ship_thrust = -g - K_p * e - K_d * e_dot - K_d * v_norm
+                else:
+                    K_p_norm  = 0.02
+                    K_d_norm  = 0.25
+                    K_d_tan   = 0.002
+                    additional_thrust = -K_p_norm*e_norm + K_d_norm*v_norm + K_d_tan*v_tan      
                     
                     # Removes the normal component of gravity so gravity can assist us along the path
-                    ship_thrust = -g_norm + additional_thrust
+                    ship_thrust = -g_norm - additional_thrust
             case 'path_follow': # Follow an arbitrary spline from start to end then stay put
-                
-                
+                               
                 thrust = 1
                 # fill this in
             case __:
