@@ -321,5 +321,5 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
 
     # ani.save('flowertest.gif', dpi=100, writer='pillow')
 
-    return fig, ax
+    return ani, fig, ax
 

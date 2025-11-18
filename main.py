@@ -35,5 +35,5 @@ if __name__ == "__main__":
 
     # 3. Plotting Options and Start Animation
     time_step = .5
-    plot_universe_animation(Bodies, Ships, scenario_bounds, time_step, navigationStrategy)
+    ani, fig, ax = plot_universe_animation(Bodies, Ships, scenario_bounds, time_step, navigationStrategy)
     # =============================================================================================================
