@@ -143,15 +143,54 @@ def initialize_universe(scenario: str):
                        thrust=1,
                        thrust_vec = True)
             
-            # Spacecraft(name ='target', 
-            #            mass = 0, 
-            #            position = (-300,220),
-            #            velocity = (0,0),
-            #            color = 'powderblue',
-            #            radius = 10,
-            #            thrust=0.0,
-            #            is_target=True,
-            #            is_dynamically_updated = False)
+            Spacecraft(name ='target', 
+                       mass = 0, 
+                       position = (-300,220),
+                       velocity = (0,0),
+                       color = 'powderblue',
+                       radius = 10,
+                       thrust=0.0,
+                       is_target=True,
+                       is_dynamically_updated = False)
+    
+            bounds = Bounds(-300, 300, -300, 300)
+
+        case '2b_figure8_chase': # Stable figure 8 2 body
+            Body(
+                name= 'star1', 
+                mass = 1000, 
+                position = (-200,0), 
+                velocity = (0, 1.11803398875),  
+                color = 'blue', 
+                radius = 20,
+                is_dynamically_updated = True)
+            
+            Body(name= 'star2', 
+                 mass = 1000, 
+                 position = (200, 0),  
+                 velocity = (0,-1.11803398875), 
+                 color = 'red',
+                 radius = 20,
+                 is_dynamically_updated = True)
+        
+            Spacecraft(name ='spaceshipA', # gravity helping
+                       mass = 10, 
+                       position = (0,0), 
+                       velocity = (0,0),
+                       radius = 2,
+                       color = 'white',
+                       thrust= 20,
+                       thrust_vec = True)
+            
+            Spacecraft(name ='target', 
+                       mass = 10, 
+                       position = (10,0),
+                       velocity = (1.1,0),
+                       color = 'green',
+                       radius = 5,
+                       thrust=0.0,
+                       is_target=True,
+                       is_dynamically_updated = True)
     
             bounds = Bounds(-300, 300, -300, 300)
 
