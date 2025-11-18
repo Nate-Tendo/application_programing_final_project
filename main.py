@@ -75,7 +75,7 @@ def connect_on_key_function_to_ship(ship):
             print("Toggling Velocity Vector for Ship:", ship.name)
             
         elif event.key == 'g':
-            ship.vector_field = not ship.vector_field
+            ship.plot_vectorfield = not ship.plot_vectorfield
             print("Toggling Gravity Field On/Off")
 
         elif event.key == 'f':
@@ -160,14 +160,12 @@ def body_vectors(Bodies,t_scaling=5000,v_scaling=5000):
              vel_vec = {'x':x, 'y':y,'dx':0, 'dy':0}
     for body in Bodies:
         if isinstance(body,Spacecraft):
-            # print('I got it')
             x = body.x
             y = body.y
             dx = body.thrust[0]*t_scaling
             dy = body.thrust[1]*t_scaling
             dx_a = body.accel[0]*t_scaling
             dy_a = body.accel[1]*t_scaling
-            # print(np.array([dx,dy]))
             if body.thrust_mag != 0:
                 thr_vec = {'x':[x], 'y':[y],'dx':[dx], 'dy':[dy]}
                 accel_vel = {'x':[x], 'y':[y],'dx_a':[dx_a], 'dy_a':[dy_a]}
@@ -209,7 +207,7 @@ def reset_simulation():
         body.is_crashed = False
         body.is_dynamically_updated = body.i_dynamic_state
         body.path = body.i_path
-    for ship in ships:
+    for ship in Ships:
         ship.fuel_spent = 0
         
 if __name__ == "__main__": 
@@ -217,39 +215,59 @@ if __name__ == "__main__":
     # ============================================================================================================
     #                   S I M U L A T I O N       S E T U P
     # ============================================================================================================
-    #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
+
+    # 1. Select Scenario
+
+    # Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
+    # ============================================================
     # scenario = '1'
     # scenario = '2'
     # scenario = '3'
     # scenario = '2b_figure8'
-    # scenario = '2b_figure8_chase'
+    scenario = '2b_figure8_chase'
     # scenario = '3b_figure8'
-    scenario = '3b_flower'
+    # scenario = '3b_flower'
 
-    plotVectorField = True
-    plotPotentialField = False
-    navigationStrategy = 'potential_field' #Options: 'stay_put', 'thrust_towards_target','line_follow', 'potential_field', 'lyapunov_pd','lyapunov_nonlinear','nav_function','chase', '_'
-    followPath = (-300,220)
-    dt = .5
+    scenario_bounds, Bodies, Ships = initialize_universe(scenario)
+    # 2. Select Navigation Strategy
+
+    #Options: 'stay_put', 'thrust_towards_target','line_follow', 'potential_field', 'lyapunov_pd','lyapunov_nonlinear','chase', '_'
+    # =============================================================================================================
+    # navigationStrategy = 'stay_put'
+    # navigationStrategy = 'thrust_towards_target'
+    # navigationStrategy = 'line_follow'
+    navigationStrategy = 'potential_field'
+    # navigationStrategy = 'lyapunov_nonlinear'
+    # navigationStrategy = 'lyapunov_pd'
+    # navigationStrategy = 'chase'
+    # navigationStrategy = '_'
 
     if navigationStrategy not in valid_navigation_strategies:
         raise ValueError(f"Invalid navigation strategy: {navigationStrategy}. Must be one of {valid_navigation_strategies}")
+
+    mainship = Ships[0]
+    followPath = (-300,220) # Used for line_follow strategy, TODO: Set as optional?
+    mainship.set_nav_strat(navigationStrategy,followPath)
+
+    # 3. Select Plotting Options
+    plotVectorField = True
+    plotPotentialField = False
+    time_step = .5
+
     # =============================================================================================================
-   
+
     q = None
     follow_line = None
     q_v = None
     q_t = None
     q_a = None
 
-    scenario_bounds, Bodies, ships = initialize_universe(scenario)
-    window = max(scenario_bounds.x_max - scenario_bounds.x_min, scenario_bounds.y_max - scenario_bounds.y_min)
-    
     # PLOTTING #
     # ========== #
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black',layout='tight')
+    window = max(scenario_bounds.x_max - scenario_bounds.x_min, scenario_bounds.y_max - scenario_bounds.y_min)
     fig.canvas.mpl_disconnect(fig.canvas.manager.key_press_handler_id) # Disconnect default key bindings
-    fig.canvas.mpl_connect('key_press_event', connect_on_key_function_to_ship(ships[0]))
+    fig.canvas.mpl_connect('key_press_event', connect_on_key_function_to_ship(Ships[0]))
     X,Y,U,V,M = vector_field(Bodies, window, spacing = window/10)
 
     # Initial Plotting
@@ -257,16 +275,9 @@ if __name__ == "__main__":
 
     q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
     
-    if ships:
-        mainship = ships[0]
-        mainship.velocity_vec = False 
-        mainship.thrust_vec = False
-        mainship.vector_field = plotVectorField
-        mainship.set_nav_strat(navigationStrategy,followPath)
-    
+    if Ships:
         if mainship.nav_strat == 'line_follow':
           x, y, follow_line = line(mainship.path_start,mainship.path_end,10000)
-
    
         qv, qt, qa = body_vectors([mainship])    
 
@@ -283,7 +294,7 @@ if __name__ == "__main__":
 
     def update(frame):
         # Always compute physics each frame
-        Body.timestep(time_step = dt)
+        Body.timestep(time_step = time_step)
         for i, path in enumerate(path_lines):
             path.set_data(Bodies[i].path[:,0],Bodies[i].path[:,1])
 
@@ -302,8 +313,8 @@ if __name__ == "__main__":
                 
         
         # Update vector field if any Bodies are dynamic
-        q.set_visible(mainship.vector_field)
-        if mainship.vector_field:
+        q.set_visible(mainship.plot_vectorfield)
+        if mainship.plot_vectorfield:
             if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in Bodies):   
                 X,Y,U,V,M = vector_field(Bodies, window, spacing = window/10)
                 q.set_UVC(U, V)
@@ -321,7 +332,7 @@ if __name__ == "__main__":
                 shadow.center = (body.x, body.y)
             shadow.set_visible(mainship.plot_potentialfield)
 
-        if ships:
+        if Ships:
             qv,qt,qa = body_vectors([mainship])
             q_v.set_visible(mainship.velocity_vec)
             q_v.set_UVC(qv['dx'], qv['dy'])

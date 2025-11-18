@@ -13,7 +13,6 @@ valid_navigation_strategies = [
     '_'
 ]
 
-
 @dataclass
 class Bounds:
     x_min: float

@@ -8,12 +8,11 @@ class Body:
     """Base class for planets, moons, stars, spacecraft."""
     _instances = []
     _index_counter = -999
-    # TODO: Make it easier to initialize velocity at 0 (automatically convert 0 -> Vector2(0,0))
     
     def __init__(self, name: str, mass: float, position: tuple, velocity = (0,0), color = 'blue', 
                  radius = 10, is_dynamically_updated = True):
         self.name = name
-        self.mass = mass # could add a density and size alternative instead of just mass
+        self.mass = mass 
         self.position = np.array(position,dtype=float)
         self.velocity = np.array(velocity,dtype=float)
         self.color = color
@@ -36,33 +35,27 @@ class Body:
         else:
             Body._index_counter += 1
 
-        # Move these here so they can be accessed for all bodies
+        # In Body() so they can be initialized for all objects
         self.ics = (self.position.copy(),self.velocity.copy()) # initial conditions
         self.i_p = self.position.copy() # initial position
         self.i_v = self.velocity.copy() # initial velocity vector
         self.i_dynamic_state = self.is_dynamically_updated
         self.i_path = self.path.copy() # initial path
 
-
     @property
-    def x(self):
-        return self.position[0]
+    def x(self): return self.position[0]
     
     @property
-    def y(self):
-        return self.position[1]
+    def y(self): return self.position[1]
     
     @property
-    def vx(self):
-        return self.velocity[0]
+    def vx(self): return self.velocity[0]
     
     @property
-    def vy(self):
-        return self.velocity[1]
+    def vy(self): return self.velocity[1]
     
     @property
-    def vmag(self):
-        return np.linalg.norm(self.velocity)
+    def vmag(self): return np.linalg.norm(self.velocity)
          
     def get_relative_position(self, other: 'Body') -> np.array:
         return other.position - self.position
@@ -73,7 +66,7 @@ class Body:
     # Computes the gravitational acceleration from one body on another
     def gravitational_acceleration_from(self, other: 'Body') -> np.array: 
         # Newton’s law of gravitation
-        distance_vector = self.get_relative_position(other)                                                # Position of body from the perspective of self, these are numpy arrays
+        distance_vector = self.get_relative_position(other)                                              # Position of body from the perspective of self, these are numpy arrays
         distance_magnitude = np.linalg.norm(distance_vector)                                             # This will be a scalar
         acceleration_vector = GRAVITY_CONSTANT * other.mass * distance_vector / (distance_magnitude**3)  # Derived from m1a = Gm1m2/d^2, note how m1 cancels.
         return acceleration_vector    
@@ -91,7 +84,6 @@ class Body:
         dynamic_bodies = [body for body in Body._instances if body.is_dynamically_updated == True]
         
         # Using dictionaries to index off body name to avoid array index errors
-
         grav_accel = {}
         total_accel = {}
         thrusts = {}
@@ -99,7 +91,6 @@ class Body:
         # compute accelerations at t_n
         for b in dynamic_bodies:
             grav_accel[b] = b.g_from_bodies()
-            b.grav_accel = grav_accel[b]
             if isinstance(b,Spacecraft):
                 thrusts[b] = b.thrust_ctrl_law(grav_accel[b])
                 b.thrust = thrusts[b]
@@ -116,7 +107,7 @@ class Body:
             for b_c in Body._instances:
                 if b_c is b:
                     continue
-                elif segment_circle_intersect(b.position, new_position, b_c.position, b_c.radius): #Remember that position.v is the position vector!
+                elif segment_circle_intersect(b.position, new_position, b_c.position, b_c.radius) and isinstance(b, Spacecraft): #Remember that position.v is the position vector!
                     b.is_crashed = True
                     b.is_dynamically_updated = False
                     print(f"Crash between {b.name} and {b_c.name}")
@@ -156,6 +147,7 @@ class Spacecraft(Body):
         self.navigation_strategy = 'none' # control law
         self.desired_path = None
         self.accel = np.array([0.0,0.0]) #for debugging
+
         # For smoothing commanded acceleration (potential field modes)
         self.prev_a_cmd = np.array([0.0, 0.0], dtype=float)
         self.nav_strat = 'none' # control law
@@ -170,8 +162,7 @@ class Spacecraft(Body):
         # momentum setpoint (tune this)
         self.mpid_setpoint = 20.0   # example
 
-        self.velocity_vec = False
-        self.thrust_vec = False
+        
         self.thrust = np.array([0.0, 0.0])
         self.thrust_mag = np.linalg.norm(self.thrust)
 
@@ -180,6 +171,8 @@ class Spacecraft(Body):
         self.path_visible = True
         self.plot_potentialfield = False
         self.planet_path_visible = False
+        self.velocity_vec = False
+        self.thrust_vec = False
         
         # For debugging and plotting
 
@@ -234,13 +227,11 @@ class Spacecraft(Body):
 
             # If we somehow get inside the body radius, huge push out
             if d < body.radius:
-                print('bad')
                 a_rep += (vec / d) * 5e3
                 continue
 
             if d < safe_zone:
                 # classic repulsive field, scaled by distance and safe_zone
-                print('pushing')
                 a_rep += k_rep * (1.0 / d - 1.0 / safe_zone) * (1.0 / (d**2)) * (vec / d)
         return a_rep
 
@@ -252,8 +243,6 @@ class Spacecraft(Body):
         """
         match self.nav_strat:
             # -------------------------------------------------
-            # 1. existing modes (unchanged)
-            # -------------------------------------------------
             case 'stay_put':
                 ground = self.i_p
                 e = self.position - ground
@@ -262,10 +251,10 @@ class Spacecraft(Body):
                 K_p = 0.2
                 K_d = 0.3
                 ship_thrust = -g - K_p * e - K_d * e_dot
-
+            # -------------------------------------------------
             case 'thrust_towards_target':
                 ship_thrust = self.propulsion_acceleration(self.max_thrust, self.orientation)
-
+            # -------------------------------------------------
             case 'line_follow':
                 n = self.path_unitvec
                 g_tan = np.dot(g, n) * n
@@ -294,9 +283,6 @@ class Spacecraft(Body):
                     K_d_tan = 0.002
                     additional_thrust = -K_p_norm * e_norm + K_d_norm * v_norm + K_d_tan * v_tan
                     ship_thrust = -g_norm - additional_thrust
-
-            # -------------------------------------------------
-            # 2. IMPROVED POTENTIAL FIELD (with tangential braking)
             # -------------------------------------------------
             case 'potential_field':
                 # Potential-field guidance with chase + rendezvous modes
@@ -393,10 +379,7 @@ class Spacecraft(Body):
                     ship_thrust = a_cmd - g
 
 
-            # -------------------------------------------------
-            # 3. LYAPUNOV-STABLE PD CONTROLLER (with gravity comp.)
-            #    V = 0.5||e||^2 + 0.5||v||^2
-            # -------------------------------------------------
+            # ------------------------------------------------- # THIS NAVIGATION STRATEGY ALGORITHM WAS GENERATED BY CHATGPT, see README.md for more details
             case 'lyapunov_pd':
                 target = self._find_target()
                 if target is None:
@@ -415,10 +398,7 @@ class Spacecraft(Body):
                     # so thrust accel must be a_total_des - g
                     ship_thrust = a_total_des - g
 
-            # -------------------------------------------------
-            # 4. LYAPUNOV + NONLINEAR DAMPING
-            #    adds term -k_v2 ||v|| v to kill hunting
-            # -------------------------------------------------
+            # ------------------------------------------------- # THIS NAVIGATION STRATEGY ALGORITHM WAS GENERATED BY CHATGPT, see README.md for more details
             case 'lyapunov_nonlinear':
                 target = self._find_target()
                 if target is None:
@@ -442,77 +422,7 @@ class Spacecraft(Body):
 
                     ship_thrust = a_total_des - g
 
-            # -------------------------------------------------
-            # 5. NAVIGATION FUNCTION CONTROLLER
-            #    Global minimum at goal, obstacles as “maxima”
-            # -------------------------------------------------
-            case 'nav_function':
-                target = self._find_target()
-                if target is None:
-                    ship_thrust = -g
-                else:
-                    q = self.position
-                    qd = target.position
-
-                    e = q - qd
-                    num = np.dot(e, e)
-
-                    # obstacle β(q)
-                    obstacles = [b for b in Body._instances if not isinstance(b, Spacecraft)]
-                    betas = []
-                    diffs = []
-                    radii = []
-                    repulsion_factor = 8.0
-
-                    for body in obstacles:
-                        diff = q - body.position
-                        d2 = np.dot(diff, diff)
-                        R = body.radius * repulsion_factor
-                        bi = d2 - R**2
-                        betas.append(bi)
-                        diffs.append(diff)
-                        radii.append(R)
-
-                    if betas:
-                        beta = 1.0
-                        for bi in betas:
-                            beta *= bi
-
-                        # grad β(q)
-                        grad_beta = np.zeros(2)
-                        for i in range(len(betas)):
-                            bi = betas[i]
-                            diff_i = diffs[i]
-                            grad_bi = 2.0 * diff_i
-
-                            prod_others = 1.0
-                            for j in range(len(betas)):
-                                if j == i:
-                                    continue
-                                prod_others *= betas[j]
-                            grad_beta += grad_bi * prod_others
-                    else:
-                        beta = 1.0
-                        grad_beta = np.zeros(2)
-
-                    k_nav = 1.0
-                    den = num + k_nav * beta
-                    if den < 1e-6:
-                        ship_thrust = -g
-                    else:
-                        grad_num = 2.0 * e
-                        grad_den = grad_num + k_nav * grad_beta
-                        grad_phi = (grad_num * den - num * grad_den) / (den**2)
-
-                        k_phi = 0.5
-                        a_total_des = -k_phi * grad_phi   # gradient descent on nav function
-
-                        ship_thrust = a_total_des - g
-
             # ----------------------------------------------------------
-            # 6. Chase -- User-Controlled via Boosters in Universe Frame
-            # ----------------------------------------------------------
-
             case 'chase':
                 ## VERY SIMPLE FORCE-BOOSTING SCHEME. Will definitely need to update and probably translate into an appropriate frame
                 force_boosters = np.array([0.0,0.0])
@@ -543,9 +453,6 @@ class Spacecraft(Body):
 
                 ship_thrust = force_boosters
 
-
-            # -------------------------------------------------
-            # 7. default
             # -------------------------------------------------
             case __:
                 ship_thrust = np.array([0.0,0.0])
@@ -559,7 +466,7 @@ class Spacecraft(Body):
                 a = a / a_mag * a_max
         return a
     
-
+# This function proboabably not going to be used for a while...
 def compute_line_gravity_cost(x_coords: np.ndarray, y_coords: np.ndarray):
     """
     Compute the gravitational 'cost' along a line defined by x,y coordinates.
