@@ -143,15 +143,15 @@ def initialize_universe(scenario: str):
                        thrust=1,
                        thrust_vec = True)
             
-            # Spacecraft(name ='target', 
-            #            mass = 0, 
-            #            position = (-300,220),
-            #            velocity = (0,0),
-            #            color = 'powderblue',
-            #            radius = 10,
-            #            thrust=0.0,
-            #            is_target=True,
-            #            is_dynamically_updated = False)
+            Spacecraft(name ='target', 
+                       mass = 0, 
+                       position = (-300,220),
+                       velocity = (0,0),
+                       color = 'powderblue',
+                       radius = 10,
+                       thrust=0.0,
+                       is_target=True,
+                       is_dynamically_updated = False)
     
             bounds = Bounds(-300, 300, -300, 300)
 

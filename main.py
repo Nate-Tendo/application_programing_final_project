@@ -53,52 +53,62 @@ def compute_line_gravity_cost(x_coords: np.ndarray, y_coords: np.ndarray):
 
     return total_vector, line_vectors, total_magnitude
 
-def plot_universe(ax, window = 100): 
+def plot_universe(ax, window=100, repulsion_factor=10.0): 
     ax.set_facecolor('black')
     
-    # Set Grid and Ticks
-    # ax.grid(True, which='both', color='white', alpha=0.25, linewidth=0.8, zorder=-3)
     ax.set_xticklabels([])
     ax.set_yticklabels([])
     ax.set_frame_on(False)
     ax.tick_params(tick1On=False)
-    locator = MultipleLocator(window/10)
+    locator = MultipleLocator(window / 10)
     ax.xaxis.set_major_locator(locator)
     ax.yaxis.set_major_locator(locator)
     
-    # TODO separate the static vs dyanmic bodies to prevent redraws
-    colors_bodies = [body.color for body in Body._instances]
+    colors_bodies = [body.color for body in Body._instances] 
     body_circles = []
+    shadow_circles = []
+
     for body in Body._instances:
-        circle = plt.Circle((body.x, body.y), body.radius, color=body.color)
+        # main body disk
+        circle = plt.Circle((body.x, body.y), body.radius, color=body.color, zorder=3)
         ax.add_patch(circle)
         body_circles.append(circle)
-    
-    # Limits and Padding
-    ax.set_aspect('equal', adjustable='box')
-    ax.set(xlim = [-window,window],ylim=[-window,window]) # TODO set max environment in a more intuitive way
-    plt.tight_layout(pad=0.5) # This may be messing with the plotting...
 
-    return body_circles
+        # gravitational / repulsive “shadow” (only for non-spacecraft)
+        if not isinstance(body, Spacecraft):
+            safe_zone = body.radius * repulsion_factor
+            shadow = plt.Circle(
+                (body.x, body.y),
+                safe_zone,
+                color='red',
+                alpha=0.08,
+                lw=1.0,
+                fill=True,
+                zorder=1,
+            )
+            ax.add_patch(shadow)
+            shadow_circles.append(shadow)
+
+    ax.set_aspect('equal', adjustable='box')
+    ax.set(xlim=[-window, window], ylim=[-window, window])
+    plt.tight_layout(pad=0.5)
+
+    return body_circles, shadow_circles
 
 def connect_on_key_function_to_ship(ship):
     def on_key(event):
         
         if event.key == 'up':
             ship.list_boosters_on['up'] = 1
-            print('up')
     
         elif event.key == 'down':
             ship.list_boosters_on['down'] = 1
-            print('down')
     
         elif event.key == 'right':
             ship.list_boosters_on['right'] = 1
-            print('right')
     
         elif event.key == 'left':
             ship.list_boosters_on['left'] = 1
-            print('left')
 
         elif event.key == 't':
             ship.thrust_vec = not ship.thrust_vec
@@ -240,14 +250,29 @@ def reset_simulation():
         
 if __name__ == "__main__": 
     
+    valid_navigation_strategies = [
+        'stay_put',
+        'thrust_towards_target',
+        'line_follow',
+        'potential_field',
+        'lyapunov_pd',
+        'lyapunov_nonlinear',
+        'nav_function',
+        'chase',
+        '_'
+    ]
+
     # ============================================================================================================
     #                   S I M U L A T I O N       S E T U P
     # ============================================================================================================
-    scenario = '2' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
-    plotVectorField = False
-    navigationStrategy = 'potential_field' #Options: 'line_follow', 'chase', 'potential_field','path_follow', 'thrust_towards_target'
+    scenario = '3' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
+    plotVectorField = True
+    navigationStrategy = 'potential_field' #Options: 'stay_put', 'thrust_towards_target','line_follow', 'potential_field', 'lyapunov_pd','lyapunov_nonlinear','nav_function','chase', '_'
     followPath = (-300,220)
     dt = .5
+
+    if navigationStrategy not in valid_navigation_strategies:
+        raise ValueError(f"Invalid navigation strategy: {navigationStrategy}. Must be one of {valid_navigation_strategies}")
     # =============================================================================================================
    
     q = None
@@ -268,9 +293,8 @@ if __name__ == "__main__":
     X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
 
     # Initial Plotting
-    body_circles = plot_universe(ax,window)
+    body_circles, shadow_circles = plot_universe(ax, window, repulsion_factor=10.0)
 
-    # No matter what, initialize the vector field
     q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
     
     if ships:
@@ -323,6 +347,11 @@ if __name__ == "__main__":
             if body.is_dynamically_updated:
                 circle.center = (body.x, body.y)
         
+        # Update shadow rings
+        for shadow, body in zip(shadow_circles, [b for b in Body._instances if not isinstance(b, Spacecraft)]):
+            if body.is_dynamically_updated:
+                shadow.center = (body.x, body.y)
+
         if ships:
             qv,qt,qa = body_vectors([mainship])
             q_v.set_visible(mainship.velocity_vec)
@@ -342,6 +371,7 @@ if __name__ == "__main__":
         return artists
     
     ani = animation.FuncAnimation(fig, update, frames=100, interval=1, blit=True, repeat=True)
+    # update(0) # Debug requires this to not run on GUI loop
 
     # ani.save('flowertest.gif', dpi=100, writer='pillow')
     plt.show() 
