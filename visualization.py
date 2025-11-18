@@ -77,8 +77,6 @@ def body_vectors(Bodies,t_scaling=5000,v_scaling=5000):
             y = body.y
             dx = body.thrust[0]*t_scaling
             dy = body.thrust[1]*t_scaling
-            dx_a = body.accel[0]*t_scaling
-            dy_a = body.accel[1]*t_scaling
             if body.thrust_mag != 0:
                 thr_vec = {'x':[x], 'y':[y],'dx':[dx], 'dy':[dy]}
             else:
