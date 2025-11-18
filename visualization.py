@@ -81,12 +81,10 @@ def body_vectors(Bodies,t_scaling=5000,v_scaling=5000):
             dy_a = body.accel[1]*t_scaling
             if body.thrust_mag != 0:
                 thr_vec = {'x':[x], 'y':[y],'dx':[dx], 'dy':[dy]}
-                accel_vel = {'x':[x], 'y':[y],'dx_a':[dx_a], 'dy_a':[dy_a]}
             else:
-                accel_vel = {'x':[x], 'y':[y],'dx_a':[0], 'dy_a':[0]}
                 thr_vec = {'x':[x], 'y':[y],'dx':[0], 'dy':[0]}
     
-    return vel_vec, thr_vec, accel_vel
+    return vel_vec, thr_vec
 
 def line(ax,start_pt: tuple, end_pt: tuple, precision=1000, lw=3):
     x = np.linspace(start_pt[0], end_pt[0], precision)
@@ -130,8 +128,8 @@ def plot_universe(ax, Bodies, window=100, repulsion_factor=10.0):
             shadow = plt.Circle(
                 (body.x, body.y),
                 safe_zone,
-                color='red',
-                alpha=0.08,
+                color='pink',
+                alpha=0.18,
                 lw=1.0,
                 fill=True,
                 zorder=1,
@@ -223,7 +221,6 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
     follow_line = None
     q_v = None
     q_t = None
-    q_a = None
 
     mainship = Ships[0]
     followPath = (-300,220) # Used for line_follow strategy, TODO: Set as optional?
@@ -231,8 +228,9 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
     mainship.set_nav_strat(navigationStrategy,followPath)
 
     time_step = Time_Step
-
-    # PLOTTING #
+    
+    # ========== #
+    #  PLOTTING  #
     # ========== #
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black',layout='tight')
     window = max(Scenario_Bounds.x_max - Scenario_Bounds.x_min, Scenario_Bounds.y_max - Scenario_Bounds.y_min)
@@ -249,17 +247,16 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
         if mainship.nav_strat == 'line_follow':
           x, y, follow_line = line(ax,mainship.path_start,mainship.path_end,10000)
    
-        qv, qt, qa = body_vectors([mainship])    
+        qv, qt = body_vectors([mainship])    
 
         # Because we have the toggle, we'll always initialize these
         q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale=1, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
-        q_a = ax.quiver(qa['x'],qa['y'],qa['dx_a'],qa['dy_a'], scale=1, angles='xy', scale_units='xy', color = 'yellow', pivot = 'tail', zorder = 4)
 
         # Changed the scale here to be more visible
         q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale=.02, angles='xy', scale_units='xy', color = 'pink', pivot = 'tail', zorder = 4)
     
     path_lines = []
-    for i, body in enumerate(Bodies):
+    for _, body in enumerate(Bodies):
         path_lines.append(ax.plot([],[], color = body.color, linewidth = 1.5, zorder = 0)[0])
 
     def update(frame):
@@ -303,7 +300,7 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
             shadow.set_visible(settings.potential_field_on)
 
         if Ships:
-            qv,qt,qa = body_vectors([mainship])
+            qv,qt = body_vectors([mainship])
             q_v.set_visible(settings.vel_vector_on)
             q_v.set_UVC(qv['dx'], qv['dy'])
             q_v.set_offsets(np.array([[qv['x'], qv['y']]]))
@@ -311,10 +308,8 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
             q_t.set_visible(settings.thrust_vector_on and mainship.thrust_mag != 0)
             q_t.set_UVC(qt['dx'], qt['dy'])
             q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
-            q_a.set_UVC(qa['dx_a'], qa['dy_a'])
-            q_a.set_offsets(np.array([[qa['x'], qa['y']]]))
         
-        pot_artists = [*path_lines, *body_circles, *shadow_circles, q, follow_line, q_t, q_v, q_a]  
+        pot_artists = [*path_lines, *body_circles, *shadow_circles, q, follow_line, q_t, q_v]  
         
         artists = [artist for artist in pot_artists if artist is not None]
             

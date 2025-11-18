@@ -40,7 +40,7 @@ def initialize_universe(scenario: str):
             Body(name= 'moon', mass = 150, position = (-500,500), velocity = (1.2,1.2), 
                  color = 'red', radius = 50, is_dynamically_updated = True)
     
-            Spacecraft(name ='spaceshipA', mass = 1, position = (-500,-500), velocity = (0,0), thrust = 50.0, 
+            Spacecraft(name ='spaceshipA', mass = 1, position = (-500,-300), velocity = (0,0), thrust = 50.0, 
                        color = 'white', radius = 10, is_dynamically_updated = True)
             
             Spacecraft(name = 'target', mass = 0, position = (500,500), velocity = (1.2,-1.2), 
@@ -59,7 +59,7 @@ def initialize_universe(scenario: str):
                        radius = 10, color = 'white', thrust= 1)
             
             Spacecraft(name ='target', mass = 0, position = (-300,220), velocity = (0,0),
-                       color = 'powderblue', radius = 10, is_dynamically_updated = False, is_target=True)
+                       color = 'purple', radius = 10, is_dynamically_updated = False, is_target=True)
     
             scenario_bounds = Bounds(-300, 300, -300, 300)
 
@@ -71,12 +71,12 @@ def initialize_universe(scenario: str):
                  color = 'red', radius = 20, is_dynamically_updated = True)
         
             Spacecraft(name ='spaceshipA', mass = 10.0, position = (0,0), velocity = (0,0),
-                       radius = 3,color = 'white', thrust= 20.0)
+                       radius = 7,color = 'white', thrust= 20.0)
             
-            Spacecraft(name ='target', mass = 10, position = (10,0),velocity = (1.1,0),
+            Spacecraft(name ='target', mass = 10, position = (15,0),velocity = (1.1,0),
                        color = 'green', radius = 7, is_dynamically_updated = True, is_target=True)
     
-            scenario_bounds = Bounds(-300, 300, -300, 300)
+            scenario_bounds = Bounds(-200, 200, -200, 200)
 
         case '3b_figure8': # Figure-eight 3 body
             threebody_figeight(2000, 400)
