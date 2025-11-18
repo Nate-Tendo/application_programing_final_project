@@ -112,9 +112,9 @@ def plot_universe(ax, Bodies, window=100, repulsion_factor=10.0):
     ax.xaxis.set_major_locator(locator)
     ax.yaxis.set_major_locator(locator)
     
-    colors_Bodies = [body.color for body in Bodies] 
     body_circles = []
     shadow_circles = []
+    path_lines = []
 
     for body in Bodies:
         # main body disk
@@ -137,11 +137,13 @@ def plot_universe(ax, Bodies, window=100, repulsion_factor=10.0):
             ax.add_patch(shadow)
             shadow_circles.append(shadow)
 
+        path_lines.append(ax.plot([],[], color = body.color, linewidth = 1.5, zorder = 0)[0])
+
     ax.set_aspect('equal', adjustable='box')
     ax.set(xlim=[-window, window], ylim=[-window, window])
     plt.tight_layout(pad=0.5)
 
-    return body_circles, shadow_circles
+    return body_circles, shadow_circles, path_lines
 
 def connect_on_key_function_to_ship(ship,settings,Bodies,Ships):
     def on_key(event):
@@ -179,7 +181,7 @@ def connect_on_key_function_to_ship(ship,settings,Bodies,Ships):
             print("Toggling Path Visibility for Ships")
 
         elif event.key == 'l':
-            ship.planet_path_on = not settings.planet_path_on
+            settings.planet_path_on = not settings.planet_path_on
             print("Toggling Planet Path Visibility")
 
         elif event.key == 'r':
@@ -208,14 +210,14 @@ class PlotSettings:
         self.thrust_vector_on = thrust_vector
         self.planet_path_on = planet_path
 
-def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigationStrategy = '_'):
+def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigationStrategy = '_', follow_path = (0,0)):
 
     # Create and Initialize Variables and Settings #
     # ======================================== #
 
 
     settings = PlotSettings(vector_field = True, ship_path = True,
-                            potential_field = False, vel_vector = False, thrust_vector = False, planet_path = False)
+                            potential_field = False, vel_vector = False, thrust_vector = False, planet_path = True)
 
     q = None
     follow_line = None
@@ -223,9 +225,8 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
     q_t = None
 
     mainship = Ships[0]
-    followPath = (-300,220) # Used for line_follow strategy, TODO: Set as optional?
     if navigationStrategy not in valid_navigation_strategies: raise ValueError(f"Invalid navigation strategy: {navigationStrategy}. Must be one of {valid_navigation_strategies}")
-    mainship.set_nav_strat(navigationStrategy,followPath)
+    mainship.set_nav_strat(navigationStrategy, follow_path)
 
     time_step = Time_Step
     
@@ -236,28 +237,28 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
     window = max(Scenario_Bounds.x_max - Scenario_Bounds.x_min, Scenario_Bounds.y_max - Scenario_Bounds.y_min)
     fig.canvas.mpl_disconnect(fig.canvas.manager.key_press_handler_id) # Disconnect default key bindings
     fig.canvas.mpl_connect('key_press_event', connect_on_key_function_to_ship(mainship,settings,Bodies,Ships))
-    X,Y,U,V,M = vector_field(Bodies, window, spacing = window/10)
-
+    # ================= #
     # Initial Plotting
-    body_circles, shadow_circles = plot_universe(ax, Bodies, window, repulsion_factor=10.0)
+    body_circles, shadow_circles, path_lines = plot_universe(ax, Bodies, window, repulsion_factor=10.0)
 
+    X,Y,U,V,M = vector_field(Bodies, window, spacing = window/10)
     q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
-    
+
     if Ships:
         if mainship.nav_strat == 'line_follow':
           x, y, follow_line = line(ax,mainship.path_start,mainship.path_end,10000)
    
         qv, qt = body_vectors([mainship])    
 
+        if navigationStrategy == 'manual_boosters':
+            thrust_scale = 300
+        else:
+            thrust_scale = 20
         # Because we have the toggle, we'll always initialize these
-        q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale=1, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
-
+        q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale = thrust_scale, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
         # Changed the scale here to be more visible
-        q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale=.02, angles='xy', scale_units='xy', color = 'pink', pivot = 'tail', zorder = 4)
-    
-    path_lines = []
-    for _, body in enumerate(Bodies):
-        path_lines.append(ax.plot([],[], color = body.color, linewidth = 1.5, zorder = 0)[0])
+        q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale= 1/20, angles='xy', scale_units='xy', color = 'pink', pivot = 'tail', zorder = 4)
+
 
     def update(frame):
         # Always compute physics each frame
@@ -278,7 +279,6 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
                 if Bodies[i].is_dynamically_updated == False:
                     path.set_data([],[])
                 
-        
         # Update vector field if any Bodies are dynamic
         q.set_visible(settings.vector_field_on)
         if settings.vector_field_on:

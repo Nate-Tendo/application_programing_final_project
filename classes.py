@@ -144,7 +144,7 @@ class Spacecraft(Body):
         self.list_boosters_on = {'up': 0,'down':0, 'left': 0, 'right': 0}
         self.fuel_spent = 0.0
         self.is_target = is_target
-        self.navigation_strategy = 'none' # control law
+        self.navigation_strategy = '_' # control law
         self.desired_path = None
         self.accel = np.array([0.0,0.0]) #for debugging
 
@@ -415,33 +415,33 @@ class Spacecraft(Body):
                     ship_thrust = a_total_des - g
 
             # ----------------------------------------------------------
-            case 'chase':
-                ## VERY SIMPLE FORCE-BOOSTING SCHEME. Will definitely need to update and probably translate into an appropriate frame
+            case 'manual_boosters':
+                ## VERY SIMPLE FORCE-BOOSTING SCHEME. Max thrust is multiplied by 0.3 to reduce jerkiness of ship motion
                 force_boosters = np.array([0.0,0.0])
             
                 if self.list_boosters_on['up'] == 1:
                     
-                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(90))
+                    force_boosters += self.propulsion_acceleration(self.max_thrust * .3, np.deg2rad(90))
                     self.list_boosters_on['up'] = 0
-                    print('up')
+                    print('up booster')
 
                 if self.list_boosters_on['down'] == 1:
                     
-                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(-90))
+                    force_boosters += self.propulsion_acceleration(self.max_thrust * .3, np.deg2rad(-90))
                     self.list_boosters_on['down'] = 0
-                    print('down')
+                    print('down booster')
                     
                 if self.list_boosters_on['left'] == 1:
                     
-                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(180))
+                    force_boosters += self.propulsion_acceleration(self.max_thrust * .3, np.deg2rad(180))
                     self.list_boosters_on['left'] = 0
-                    print('left')
+                    print('left booster')
                     
                 if self.list_boosters_on['right'] == 1:
                     
-                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(0))
+                    force_boosters += self.propulsion_acceleration(self.max_thrust * .3, np.deg2rad(0))
                     self.list_boosters_on['right'] = 0
-                    print('right')
+                    print('right booster')
 
                 ship_thrust = force_boosters
 
