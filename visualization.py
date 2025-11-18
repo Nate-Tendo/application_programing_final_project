@@ -298,11 +298,11 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
         if navigationStrategy == 'manual_boosters':
             thrust_scale = 100
         else:
-            thrust_scale = 20        
+            thrust_scale = 2        
         # Because we have the toggle, we'll always initialize these
         q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale = thrust_scale, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
         # Changed the scale here to be more visible
-        q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale= 1/10, angles='xy', scale_units='xy', color = 'pink', pivot = 'tail', zorder = 4)
+        q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale= 1/50, angles='xy', scale_units='xy', color = 'pink', pivot = 'tail', zorder = 4)
 
     global current_time 
     current_time = 0.0
