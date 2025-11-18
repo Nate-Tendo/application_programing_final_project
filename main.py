@@ -64,7 +64,7 @@ def plot_universe(ax, window=100, repulsion_factor=10.0):
     ax.xaxis.set_major_locator(locator)
     ax.yaxis.set_major_locator(locator)
     
-    colors_bodies = [body.color for body in Body._instances]
+    colors_bodies = [body.color for body in Body._instances] 
     body_circles = []
     shadow_circles = []
 
@@ -95,7 +95,7 @@ def plot_universe(ax, window=100, repulsion_factor=10.0):
 
     return body_circles, shadow_circles
 
-def make_on_key(ship):
+def connect_on_key_function_to_ship(ship):
     def on_key(event):
         
         if event.key == 'up':
@@ -109,6 +109,27 @@ def make_on_key(ship):
     
         elif event.key == 'left':
             ship.list_boosters_on['left'] = 1
+
+        elif event.key == 't':
+            ship.thrust_vec = not ship.thrust_vec
+            print("Toggling Thrust Vector for Ship:", ship.name)
+
+        elif event.key == 'v':
+            ship.velocity_vec = not ship.velocity_vec
+            print("Toggling Velocity Vector for Ship:", ship.name)
+            
+        elif event.key == 'g':
+            ship.vector_field = not ship.vector_field
+            print("Toggling Gravity Field On/Off")
+
+        elif event.key == 'p':
+            ship.path_visible = not ship.path_visible
+            print("Toggling Path Visibility for Ships")
+
+        elif event.key == 'r':
+            reset_simulation()
+            print("Resetting Simulation")
+        
     return on_key
 
 def vector_field(bodies, window_size, spacing=100, max_acc=5e-4):
@@ -198,7 +219,6 @@ def f_1(r):
     y = 50*(r**2 - 2*r + 3)
     return x,y
 
-
 def parametric_func(f,r,lw=3):
     x,y = f(r)
     ax.plot(x,y,zorder=2,linewidth=lw,linestyle='--')
@@ -207,7 +227,7 @@ def line(start_pt: tuple, end_pt: tuple, precision=1000, lw=3):
     x = np.linspace(start_pt[0], end_pt[0], precision)
     y = np.linspace(start_pt[1], end_pt[1], precision)
     np.stack((x,y))
-    (ln,) = ax.plot(x,y,zorder=2,color='powderblue', linestyle='--',linewidth=lw)
+    (ln,) = ax.plot(x,y,zorder=2,color='royalblue', linestyle='--',linewidth=lw, alpha = 0.5)
     return x,y,ln
     
 def points_spline(x,y,precision=1000, lw=2):
@@ -218,18 +238,41 @@ def points_spline(x,y,precision=1000, lw=2):
     plt.plot(x_new,spl(x_new),zorder=2)
     # dxdt, dydt = splev(ti, tck, der=1)
 
-
+def reset_simulation():
+    for body in Body._instances:
+        body.position[:] = body.i_p
+        body.velocity[:] = body.i_v
+        body.is_crashed = False
+        body.is_dynamically_updated = body.i_dynamic_state
+    for ship in Spacecraft._instances:
+        ship.path = ship.i_path
+        ship.fuel_spent = 0
         
 if __name__ == "__main__": 
     
+    valid_navigation_strategies = [
+        'stay_put',
+        'thrust_towards_target',
+        'line_follow',
+        'potential_field',
+        'lyapunov_pd',
+        'lyapunov_nonlinear',
+        'nav_function',
+        'chase',
+        '_'
+    ]
+
     # ============================================================================================================
     #                   S I M U L A T I O N       S E T U P
     # ============================================================================================================
-    scenario = '3'
+    scenario = '3' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
     plotVectorField = True
-    navigationStrategy = 'potential_field'
+    navigationStrategy = 'potential_field' #Options: 'stay_put', 'thrust_towards_target','line_follow', 'potential_field', 'lyapunov_pd','lyapunov_nonlinear','nav_function','chase', '_'
     followPath = (-300,220)
-    dt = 1
+    dt = .5
+
+    if navigationStrategy not in valid_navigation_strategies:
+        raise ValueError(f"Invalid navigation strategy: {navigationStrategy}. Must be one of {valid_navigation_strategies}")
     # =============================================================================================================
    
     q = None
@@ -240,21 +283,25 @@ if __name__ == "__main__":
     ships = Spacecraft._instances
     bodies = Body._instances
     bounds = initialize_universe(scenario)
-    window=max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
-   
+    window = max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
+    
     # PLOTTING #
     # ========== #
-    fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
-    # fig.canvas.mpl_connect('key_press_event', make_on_key(ships[0]))
+    fig, ax = plt.subplots(figsize=(6, 6), facecolor='black',layout='tight')
+    fig.canvas.mpl_disconnect(fig.canvas.manager.key_press_handler_id) # Disconnect default key bindings
+    fig.canvas.mpl_connect('key_press_event', connect_on_key_function_to_ship(ships[0]))
     X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
 
     # Initial Plotting
     body_circles, shadow_circles = plot_universe(ax, window, repulsion_factor=10.0)
-    if plotVectorField == True:
-        q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
+
+    q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
     
     if ships:
         mainship = ships[0]
+        mainship.velocity_vec = False 
+        mainship.thrust_vec = False
+        mainship.vector_field = plotVectorField
         mainship.set_nav_strat(navigationStrategy,followPath)
     
         if mainship.nav_strat == 'line_follow':
@@ -262,28 +309,34 @@ if __name__ == "__main__":
 
    
         qv, qt, qa = body_vectors([mainship])    
-        if mainship.thrust_vec == True:
-            q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale=1, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
-            q_a = ax.quiver(qa['x'],qa['y'],qa['dx_a'],qa['dy_a'], scale=1, angles='xy', scale_units='xy', color = 'yellow', pivot = 'tail', zorder = 4)
-        if mainship.velocity_vec == True:
-            q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale=1, angles='xy', scale_units='xy', color = 'skyblue', pivot = 'tail', zorder = 4)
+
+        # Because we have the toggle, we'll always initialize these
+        q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale=1, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
+        q_a = ax.quiver(qa['x'],qa['y'],qa['dx_a'],qa['dy_a'], scale=1, angles='xy', scale_units='xy', color = 'yellow', pivot = 'tail', zorder = 4)
+
+        # Changed the scale here to be more visible
+        q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale=.02, angles='xy', scale_units='xy', color = 'pink', pivot = 'tail', zorder = 4)
     
     path_lines = []
     for i, ship in enumerate(ships):
-        path_lines.append(ax.plot([],[], color = 'white', linewidth = 3, zorder = 0)[0])
+        path_lines.append(ax.plot([],[], color = ship.color, linewidth = 1.5, zorder = 0)[0])
 
     def update(frame):
         # Always compute physics each frame
         Body.timestep(time_step = dt)
         for i, path in enumerate(path_lines):
             path.set_data(ships[i].path[:,0],ships[i].path[:,1])
-            # if ships[i].is_crashed:
-            #     path.set_color('red')
-            #     for ship in ships:
-            #         ship.is_dynamically_updated = False
+            path.set_visible(mainship.path_visible)
+            if ships[i].is_crashed:
+                path.set_color('red')
+                path.set_linestyle('--')
+            else:
+                path.set_color(ships[i].color)
+                path.set_linestyle('-')
         
         # Update vector field if any bodies are dynamic
-        if plotVectorField == True:
+        q.set_visible(mainship.vector_field)
+        if mainship.vector_field:
             if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in bodies):   
                 X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
                 q.set_UVC(U, V)
@@ -300,26 +353,25 @@ if __name__ == "__main__":
                 shadow.center = (body.x, body.y)
 
         if ships:
-            qv,qt,qa = body_vectors([ships[0]])
-            if mainship.velocity_vec == True:
-                q_v.set_UVC(qv['dx'], qv['dy'])
-                q_v.set_offsets(np.array([[qv['x'], qv['y']]]))
-            if mainship.thrust_vec == True:
-                q_t.set_UVC(qt['dx'], qt['dy'])
-                q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
-                q_a.set_UVC(qa['dx_a'], qa['dy_a'])
-                q_a.set_offsets(np.array([[qa['x'], qa['y']]]))
+            qv,qt,qa = body_vectors([mainship])
+            q_v.set_visible(mainship.velocity_vec)
+            q_v.set_UVC(qv['dx'], qv['dy'])
+            q_v.set_offsets(np.array([[qv['x'], qv['y']]]))
+
+            q_t.set_visible(mainship.thrust_vec and mainship.thrust_mag != 0)
+            q_t.set_UVC(qt['dx'], qt['dy'])
+            q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
+            q_a.set_UVC(qa['dx_a'], qa['dy_a'])
+            q_a.set_offsets(np.array([[qa['x'], qa['y']]]))
         
         pot_artists = [*path_lines, *body_circles, q, follow_line, q_t, q_v, q_a]  
         
         artists = [artist for artist in pot_artists if artist is not None]
-        
-        # if frame == 250:
-        #     print('Fuel Spent:',ships[0].fuel_spent)
             
         return artists
     
     ani = animation.FuncAnimation(fig, update, frames=100, interval=1, blit=True, repeat=True)
+    # update(0) # Debug requires this to not run on GUI loop
 
     # ani.save('flowertest.gif', dpi=100, writer='pillow')
     plt.show() 

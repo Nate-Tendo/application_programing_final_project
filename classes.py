@@ -83,6 +83,14 @@ class Body:
         else:
             Body._index_counter += 1
 
+        # Move these here so they can be accessed for all bodies
+        self.ics = (self.position.copy(),self.velocity.copy()) # initial conditions
+        self.i_p = self.position.copy() # initial position
+        self.i_v = self.velocity.copy() # initial velocity vector
+        self.i_dynamic_state = self.is_dynamically_updated
+        self.i_path = self.path.copy() # initial path
+
+
     @property
     def x(self):
         return self.position[0]
@@ -158,8 +166,6 @@ class Body:
                 elif segment_circle_intersect(b.position, new_position, b_c.position, b_c.radius): #Remember that position.v is the position vector!
                     b.is_crashed = True
                     b.is_dynamically_updated = False
-                    b_c.is_crashed = True
-                    b_c.is_dynamically_updated = False
                     print(f"Crash between {b.name} and {b_c.name}")
                         
             # If not crashed, then update position                
@@ -187,7 +193,7 @@ class Spacecraft(Body):
 
     def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, 
                  orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False,
-                 velocity_vec = False, thrust_vec = False, acc_vec = False):
+                 velocity_vec = False, thrust_vec = False, acc_vec = False, vector_field = True):
         super().__init__(name, mass, position, velocity, color, radius, is_dynamically_updated)
         self.max_thrust = thrust
         self.orientation = orientation  # radians
@@ -212,17 +218,14 @@ class Spacecraft(Body):
         # momentum setpoint (tune this)
         self.mpid_setpoint = 20.0   # example
 
-        
-        
-        self.ics = (self.position.copy(),self.velocity.copy()) # initial conditions
-        self.i_p = self.position.copy() # initial position
-        self.i_v = self.velocity.copy() # initial velocity vector
-
-
         self.velocity_vec = velocity_vec
         self.thrust_vec = thrust_vec
         self.thrust = np.array([0.0, 0.0])
         self.thrust_mag = np.linalg.norm(self.thrust)
+
+        # This is semi-cheating, but it'll work for now
+        self.plot_vectorfield = vector_field
+        self.path_visible = True
         
         # For debugging and plotting
 
@@ -362,7 +365,7 @@ class Spacecraft(Body):
                     k_damp_far  = 0.03     # small global damping when far
                     k_damp_near = 0.10     # damping on *relative* velocity when near
 
-                    chase_radius     = 400.0   # outside this → chase mode
+                    chase_radius     = 400.0   # outside this → chase mode #TODO: Could likely scale these based on initial distance to target
                     rendezvous_radius = 200.0  # inside this → fully rendezvous
 
                     repulsion_factor = 8.0
@@ -552,11 +555,46 @@ class Spacecraft(Body):
 
                         ship_thrust = a_total_des - g
 
+            # ----------------------------------------------------------
+            # 6. Chase -- User-Controlled via Boosters in Universe Frame
+            # ----------------------------------------------------------
+
+            case 'chase':
+                ## VERY SIMPLE FORCE-BOOSTING SCHEME. Will definitely need to update and probably translate into an appropriate frame
+                force_boosters = np.array([0.0,0.0])
+            
+                if self.list_boosters_on['up'] == 1:
+                    
+                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(90))
+                    self.list_boosters_on['up'] = 0
+                    print('up')
+
+                if self.list_boosters_on['down'] == 1:
+                    
+                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(-90))
+                    self.list_boosters_on['down'] = 0
+                    print('down')
+                    
+                if self.list_boosters_on['left'] == 1:
+                    
+                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(180))
+                    self.list_boosters_on['left'] = 0
+                    print('left')
+                    
+                if self.list_boosters_on['right'] == 1:
+                    
+                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(0))
+                    self.list_boosters_on['right'] = 0
+                    print('right')
+
+                ship_thrust = force_boosters
+
+
             # -------------------------------------------------
-            # 6. default
+            # 7. default
             # -------------------------------------------------
-            case _:
-                ship_thrust = np.array([0.0, 0.0])
+            case __:
+                ship_thrust = np.array([0.0,0.0])
 
         # ------------ GLOBAL ACCELERATION LIMIT -------------
         a = ship_thrust
