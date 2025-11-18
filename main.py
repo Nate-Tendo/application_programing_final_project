@@ -1,6 +1,3 @@
-import numpy as np
-import matplotlib.pyplot as plt
-
 from solar_system_config import initialize_universe
 from visualization import plot_universe_animation
         
@@ -40,8 +37,3 @@ if __name__ == "__main__":
     time_step = .5
     plot_universe_animation(Bodies, Ships, scenario_bounds, time_step, navigationStrategy)
     # =============================================================================================================
-
-
-
-
-    
