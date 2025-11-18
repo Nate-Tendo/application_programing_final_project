@@ -111,6 +111,9 @@ class Body:
                     b.is_crashed = True
                     b.is_dynamically_updated = False
                     print(f"Crash between {b.name} and {b_c.name}")
+                    # if isinstance(b_c, Spacecraft):
+                    #     b_c.is_crashed = True
+                    #     b_c.is_dynamically_updated = False
                         
             # If not crashed, then update position                
             b.position = new_position
@@ -144,29 +147,16 @@ class Spacecraft(Body):
         self.list_boosters_on = {'up': 0,'down':0, 'left': 0, 'right': 0}
         self.fuel_spent = 0.0
         self.is_target = is_target
-        self.navigation_strategy = 'none' # control law
+        self.navigation_strategy = '_' # control law
         self.desired_path = None
-        self.accel = np.array([0.0,0.0]) #for debugging
 
         # For smoothing commanded acceleration (potential field modes)
         self.prev_a_cmd = np.array([0.0, 0.0], dtype=float)
         self.nav_strat = 'none' # control law
         self.path_follow = None
-        # Direction PID
-        self.mpid_integral_dir = 0.0
-        self.mpid_last_error_dir = 0.0
-        # Magnitude PID
-        self.mpid_integral_mag = 0.0
-        self.mpid_last_error_mag = 0.0
-
-        # momentum setpoint (tune this)
-        self.mpid_setpoint = 20.0   # example
-
         
         self.thrust = np.array([0.0, 0.0])
         self.thrust_mag = np.linalg.norm(self.thrust)
-        
-        # For debugging and plotting
 
         if self.name == 'target' and not self.is_target:
             raise ValueError("Spacecraft named 'target' must have is_target=True")
@@ -204,9 +194,16 @@ class Spacecraft(Body):
             if ship.is_target and ship is not self:
                 return ship
         return None
+    
+    def compute_relative_to_target(self):
+        target = self._find_target()
+        if target is None:
+            return None, None
+        rel_pos = self.get_relative_position(target)
+        rel_vel = self.get_relative_speed(target)
+        return rel_pos, rel_vel
 
     def _repulsive_accel(self, pos, repulsion_factor=10.0, k_rep=1.5e5):
-        """Shared obstacle repulsion (returns acceleration)."""
         a_rep = np.zeros(2, dtype=float)
         obstacles = [b for b in Body._instances if not isinstance(b, Spacecraft)]
         for body in obstacles:
@@ -216,14 +213,9 @@ class Spacecraft(Body):
                 continue
 
             safe_zone = body.radius * repulsion_factor
-
-            # If we somehow get inside the body radius, huge push out
-            if d < body.radius:
-                a_rep += (vec / d) * 5e3
-                continue
-
+                
+            # repulsive field, scaled by distance and safe_zone
             if d < safe_zone:
-                # classic repulsive field, scaled by distance and safe_zone
                 a_rep += k_rep * (1.0 / d - 1.0 / safe_zone) * (1.0 / (d**2)) * (vec / d)
         return a_rep
 
@@ -277,10 +269,8 @@ class Spacecraft(Body):
                     ship_thrust = -g_norm - additional_thrust
             # -------------------------------------------------
             case 'potential_field':
-                # Potential-field guidance with chase + rendezvous modes
                 target = self._find_target()
                 if target is None:
-                    # no target: just hover by cancelling gravity and damping
                     k_damp_hover = 0.08
                     ship_thrust = -g - k_damp_hover * self.velocity
                 else:
@@ -289,26 +279,22 @@ class Spacecraft(Body):
                     tgt_pos = target.position
                     tgt_vel = target.velocity
 
-                    # -------------------------
-                    # Params to tune
-                    # -------------------------
-                    k_att_far   = 8e-4     # attractive gain when far
-                    k_att_near  = 1.2e-3   # attractive gain when near (rendezvous PD)
-                    k_damp_far  = 0.03     # small global damping when far
-                    k_damp_near = 0.10     # damping on *relative* velocity when near
+                    # Params
+                    k_att_far   = 8e-4
+                    k_att_near  = 1.2e-3
+                    k_damp_far  = 0.03
+                    k_damp_near = 0.10
 
-                    chase_radius     = 400.0   # outside this → chase mode #TODO: Could likely scale these based on initial distance to target
-                    rendezvous_radius = 200.0  # inside this → fully rendezvous
+                    chase_radius     = 400.0 
+                    rendezvous_radius = 200.0
 
                     repulsion_factor = 8.0
                     k_rep            = 8e7
-                    a_rep_max        = 5    # cap on repulsive accel
-                    alpha_smooth     = 0.25    # accel smoothing  (0<alpha<=1)
-
-                    # -------------------------
-                    # Common terms
-                    # -------------------------
-                    dir_to_goal = tgt_pos - pos          # vector TO target
+                    a_rep_max        = 5
+                    alpha_smooth     = 0.25
+                    
+                    # vector TO target
+                    dir_to_goal = tgt_pos - pos
                     dist_to_goal = np.linalg.norm(dir_to_goal)
                     if dist_to_goal < 1e-6:
                         dir_to_goal = np.zeros(2)
@@ -324,50 +310,29 @@ class Spacecraft(Body):
                     if rep_mag > a_rep_max and rep_mag > 0:
                         a_rep = a_rep / rep_mag * a_rep_max
 
-                    # -------------------------
                     # Mode 1: CHASE (far away)
-                    #   - run toward target
-                    #   - only light global damping
-                    # -------------------------
                     if dist_to_goal > chase_radius:
                         a_att = k_att_far * dir_to_goal
-                        a_damp = -k_damp_far * vel               # damp absolute velocity a bit
+                        a_damp = -k_damp_far * vel
                         a_total_des = a_att + a_rep + a_damp
 
-                    # -------------------------
                     # Mode 2: RENDEZVOUS (near target)
-                    #   - PD on relative position and velocity
-                    #   - matches target motion instead of stopping in world frame
-                    # -------------------------
                     else:
-                        # position error (self relative to target)
-                        e = pos - tgt_pos          # want e → 0
-                        # relative velocity
-                        v_rel = vel - tgt_vel      # want v_rel → 0
+                        e = pos - tgt_pos
+                        v_rel = vel - tgt_vel
 
-                        # blend gains depending on distance (optional smooth transition)
-                        # here we just use "near" gains inside chase_radius
+                        # blend gains
                         k_p = k_att_near
                         k_v = k_damp_near
 
-                        # desired TOTAL accel (including gravity) in relative coordinates
                         a_rel_des = -k_p * e - k_v * v_rel
-
-                        # plus obstacle repulsion in world frame
                         a_total_des = a_rel_des + a_rep
 
-                    # -------------------------
                     # Smooth the command a bit
-                    # -------------------------
                     a_cmd = (1.0 - alpha_smooth) * self.prev_a_cmd + alpha_smooth * a_total_des
                     self.prev_a_cmd = a_cmd.copy()
 
-                    # -------------------------
                     # Convert desired total accel to thrust accel
-                    #
-                    # timestep() does: total = g + thrust
-                    # We want total ≈ a_cmd  ⇒ thrust = a_cmd - g
-                    # -------------------------
                     ship_thrust = a_cmd - g
 
 
@@ -415,41 +380,38 @@ class Spacecraft(Body):
                     ship_thrust = a_total_des - g
 
             # ----------------------------------------------------------
-            case 'chase':
-                ## VERY SIMPLE FORCE-BOOSTING SCHEME. Will definitely need to update and probably translate into an appropriate frame
+            case 'manual_boosters':
+                ## VERY SIMPLE FORCE-BOOSTING SCHEME. Max thrust is multiplied by 0.3 to reduce jerkiness of ship motion
                 force_boosters = np.array([0.0,0.0])
             
                 if self.list_boosters_on['up'] == 1:
                     
-                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(90))
+                    force_boosters += self.propulsion_acceleration(self.max_thrust * .3, np.deg2rad(90))
                     self.list_boosters_on['up'] = 0
-                    print('up')
+                    print('up booster')
 
                 if self.list_boosters_on['down'] == 1:
                     
-                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(-90))
+                    force_boosters += self.propulsion_acceleration(self.max_thrust * .3, np.deg2rad(-90))
                     self.list_boosters_on['down'] = 0
-                    print('down')
+                    print('down booster')
                     
                 if self.list_boosters_on['left'] == 1:
                     
-                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(180))
+                    force_boosters += self.propulsion_acceleration(self.max_thrust * .3, np.deg2rad(180))
                     self.list_boosters_on['left'] = 0
-                    print('left')
+                    print('left booster')
                     
                 if self.list_boosters_on['right'] == 1:
                     
-                    force_boosters += self.propulsion_acceleration(self.max_thrust, np.deg2rad(0))
+                    force_boosters += self.propulsion_acceleration(self.max_thrust * .3, np.deg2rad(0))
                     self.list_boosters_on['right'] = 0
-                    print('right')
+                    print('right booster')
 
                 ship_thrust = force_boosters
-
-            # -------------------------------------------------
             case __:
                 ship_thrust = np.array([0.0,0.0])
 
-        # ------------ GLOBAL ACCELERATION LIMIT -------------
         a = ship_thrust
         a_mag = np.linalg.norm(a)
         if self.max_thrust > 0:

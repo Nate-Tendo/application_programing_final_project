@@ -8,8 +8,7 @@ valid_navigation_strategies = [
     'potential_field',
     'lyapunov_pd',
     'lyapunov_nonlinear',
-    'nav_function',
-    'chase',
+    'manual_boosters',
     '_'
 ]
 

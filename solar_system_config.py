@@ -55,8 +55,8 @@ def initialize_universe(scenario: str):
             Body(name= 'star2', mass = 2000, position = (200,0), velocity = (0,-1.11803398875), 
                  color = 'red', radius = 20, is_dynamically_updated = True)
         
-            Spacecraft(name ='spaceshipA', mass = 10, position = (-250,-250), velocity = (2,1),
-                       radius = 10, color = 'white', thrust= 1)
+            Spacecraft(name ='spaceshipA', mass = 10, position = (-250,-250), velocity = (2,1), thrust= 1.0,
+                       color = 'white', radius = 10, is_dynamically_updated = True)
             
             Spacecraft(name ='target', mass = 0, position = (-300,220), velocity = (0,0),
                        color = 'purple', radius = 10, is_dynamically_updated = False, is_target=True)
@@ -70,8 +70,8 @@ def initialize_universe(scenario: str):
             Body(name= 'star2', mass = 1000, position = (200, 0), velocity = (0,-1.11803398875), 
                  color = 'red', radius = 20, is_dynamically_updated = True)
         
-            Spacecraft(name ='spaceshipA', mass = 10.0, position = (0,0), velocity = (0,0),
-                       radius = 7,color = 'white', thrust= 20.0)
+            Spacecraft(name ='spaceshipA', mass = 10.0, position = (0,0), velocity = (-1.1,0), thrust= 50.0,
+                       color = 'white', radius = 7, is_dynamically_updated = True)
             
             Spacecraft(name ='target', mass = 10, position = (15,0),velocity = (1.1,0),
                        color = 'green', radius = 7, is_dynamically_updated = True, is_target=True)
@@ -128,8 +128,8 @@ def threebody_figeight(m,D):
          color = '#3f54ba', radius = 50, is_dynamically_updated = True)
     
     # Initialize a placeholder spacecraft to prevent things from breaking
-    Spacecraft(name ='spaceshipA', mass = 0, position = (-99999,0), velocity = (0,0),
-            radius = 0, color = 'white', thrust= 0, is_dynamically_updated= False)
+    Spacecraft(name ='spaceshipA', mass = 0, position = (-99999,0), velocity = (0,0), thrust= 0,
+            radius = 0, color = 'white', is_dynamically_updated= False)
     
 def threebody_flower(m,D):
     r_dims = np.array([(0.0132604844,0), (1.4157286016,0), (-1.4289890859,0)])
