@@ -103,14 +103,16 @@ visualization.py allows toggling (within the script) features such as:
 # Keybinds
 
 Control Toggles:
-H - Help Menu
-T - Toggle Thrust Vector
-V - Toggle Velocity Vector
-G - Toggle Gravity Fields
-F - Toggle Potential Fields
-P - Toggle Ship Paths
-L - Toggle Planet Paths
-R - Reset Simulation
+
+**H** – Help Menu  
+**T** – Toggle Thrust Vector  
+**V** – Toggle Velocity Vector  
+**G** – Toggle Gravity Fields  
+**F** – Toggle Potential Fields  
+**P** – Toggle Ship Paths  
+**L** – Toggle Planet Paths  
+**R** – Reset Simulation  
+
 
 ---
 
