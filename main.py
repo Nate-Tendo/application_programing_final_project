@@ -14,8 +14,8 @@ if __name__ == "__main__":
     # scenario = '1'
     # scenario = '2'
     # scenario = '3'
-    scenario = '2b_figure8'
-    # scenario = '2b_figure8_chase'
+    # scenario = '2b_figure8'
+    scenario = '2b_figure8_chase'
     # scenario = '3b_figure8'
     # scenario = '3b_flower'
 
@@ -26,11 +26,11 @@ if __name__ == "__main__":
     # =============================================================================================================
     # navigationStrategy = 'stay_put'
     # navigationStrategy = 'thrust_towards_target'
-    navigationStrategy = 'line_follow'
+    # navigationStrategy = 'line_follow'
     # navigationStrategy = 'potential_field'
     # navigationStrategy = 'lyapunov_nonlinear'
     # navigationStrategy = 'lyapunov_pd'
-    # navigationStrategy = 'manual_boosters'
+    navigationStrategy = 'manual_boosters'
     # navigationStrategy = '_'
 
     follow_path = (-300,220)  # Only used for line_follow strategy, this default path is for scenario '2b_figure8'
