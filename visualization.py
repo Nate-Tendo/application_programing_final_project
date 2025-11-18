@@ -185,7 +185,7 @@ def connect_on_key_function_to_ship(ship,settings,Bodies,Ships):
             print("Toggling Planet Path Visibility")
 
         elif event.key == 'r':
-            reset_simulation(Bodies)
+            reset_simulation(Bodies,Ships)
             print("Resetting Simulation")
         
     return on_key
