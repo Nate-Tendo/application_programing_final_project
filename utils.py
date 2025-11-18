@@ -1,6 +1,19 @@
 from dataclasses import dataclass
 import numpy as np
 
+valid_navigation_strategies = [
+    'stay_put',
+    'thrust_towards_target',
+    'line_follow',
+    'potential_field',
+    'lyapunov_pd',
+    'lyapunov_nonlinear',
+    'nav_function',
+    'chase',
+    '_'
+]
+
+
 @dataclass
 class Bounds:
     x_min: float

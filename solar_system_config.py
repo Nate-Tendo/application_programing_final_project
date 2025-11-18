@@ -20,23 +20,11 @@ def initialize_universe(scenario: str):
     Spacecraft._instances.clear()
     match scenario:
         case '1': # Goal and spaceship is in two different corner
-            Body(name= 'planet1', 
-                 mass = 2000, 
-                 position = (2,0),       
-                 velocity = (2,0), 
-                 color = 'green',   
-                 radius = 50, 
-                 is_dynamically_updated = False)
+            Body(name= 'planet1', mass = 2000, position = (2,0), velocity = (2,0), 
+                 color = 'green', radius = 50, is_dynamically_updated = False)
             
-            Spacecraft(name ='spaceshipA', 
-                       mass = 1, 
-                       position = (-500,-500),   
-                       velocity = (-1,1), 
-                       thrust = 50.0, 
-                       color = 'white', 
-                       radius = 20, 
-                       is_dynamically_updated = True,
-                       thrust_vec = True)
+            Spacecraft(name ='spaceshipA', mass = 1, position = (-500,-500), velocity = (-1,1), thrust = 50.0, 
+                       color = 'white', radius = 20, is_dynamically_updated = True)
             
             Spacecraft(name = 'target',    
                        mass = 0,  
@@ -86,14 +74,14 @@ def initialize_universe(scenario: str):
                  color = 'green',   
                  radius = 50, 
                  is_dynamically_updated = False)
+            
             Body(name= 'moon', 
                  mass = 150, 
                  position = (-500,500),  
                  velocity = (1.2,1.2), 
                  color = 'red',    
                  radius = 50, 
-                 is_dynamically_updated = True,
-                 velocity_vec = True)
+                 is_dynamically_updated = True)
     
             Spacecraft(name ='spaceshipA', 
                        mass = 1, 
@@ -102,9 +90,7 @@ def initialize_universe(scenario: str):
                        thrust = 50.0, 
                        color = 'white', 
                        radius = 10, 
-                       is_dynamically_updated = True,
-                       thrust_vec = True,
-                       velocity_vec = True)
+                       is_dynamically_updated = True)
             
             Spacecraft(name = 'target',    
                        mass = 0,  
@@ -141,8 +127,7 @@ def initialize_universe(scenario: str):
                        velocity = (2,1),
                        radius = 10,
                        color = 'white',
-                       thrust=1,
-                       thrust_vec = True)
+                       thrust=1)
             
             Spacecraft(name ='target', 
                        mass = 0, 
@@ -151,14 +136,13 @@ def initialize_universe(scenario: str):
                        color = 'powderblue',
                        radius = 10,
                        thrust=0.0,
-                       is_target=True,
-                       is_dynamically_updated = False)
+                       is_dynamically_updated = False,
+                       is_target=True)
     
             scenario_bounds = Bounds(-300, 300, -300, 300)
 
         case '2b_figure8_chase': # Stable figure 8 2 body
-            Body(
-                name= 'star1', 
+            Body(name= 'star1', 
                 mass = 1000, 
                 position = (-200,0), 
                 velocity = (0, 1.11803398875),  
@@ -175,13 +159,12 @@ def initialize_universe(scenario: str):
                  is_dynamically_updated = True)
         
             Spacecraft(name ='spaceshipA', # gravity helping
-                       mass = 10, 
+                       mass = 10.0, 
                        position = (0,0), 
                        velocity = (0,0),
                        radius = 2,
                        color = 'white',
-                       thrust= 20,
-                       thrust_vec = True)
+                       thrust= 20.0)
             
             Spacecraft(name ='target', 
                        mass = 10, 
@@ -189,9 +172,9 @@ def initialize_universe(scenario: str):
                        velocity = (1.1,0),
                        color = 'green',
                        radius = 5,
-                       thrust=0.0,
-                       is_target=True,
-                       is_dynamically_updated = True)
+                       thrust= 0.0,
+                       is_dynamically_updated = True,
+                       is_target=True)
     
             scenario_bounds = Bounds(-300, 300, -300, 300)
 
@@ -202,20 +185,8 @@ def initialize_universe(scenario: str):
         case '3b_flower': # Flower shape 3 body
             threebody_flower(2000, 500)
             scenario_bounds = Bounds(-600, 600, -600, 600)
-            
-            # Spacecraft(name ='spaceshipA', # gravity helping
-            #            mass = 10, 
-            #            position = (-250,-250), 
-            #            velocity = (0,0),
-            #            radius = 10,
-            #            color = 'white',
-            #            thrust=1,
-            #            thrust_vec = True)   
 
-    Bodies = Body._instances
-    Ships = Spacecraft._instances
-
-    return scenario_bounds, Bodies, Ships
+    return scenario_bounds, Body._instances, Spacecraft._instances
 
 def onebody_circular_orbit(r,G,m):
     v = np.sqrt(G*m/r)

@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.ticker import MultipleLocator
 from matplotlib.patches import Circle
-from classes import Body, Spacecraft, GRAVITY_CONSTANT, EPSILON_GRAVITY
-from solar_system_config import initialize_universe
 from scipy.interpolate import CubicSpline, splev
 
-
+from classes import Body, Spacecraft, GRAVITY_CONSTANT, EPSILON_GRAVITY
+from utils import valid_navigation_strategies
+from solar_system_config import initialize_universe
 
 def plot_universe(ax, window=100, repulsion_factor=10.0): 
     ax.set_facecolor('black')
@@ -214,18 +214,6 @@ def reset_simulation():
         
 if __name__ == "__main__": 
     
-    valid_navigation_strategies = [
-        'stay_put',
-        'thrust_towards_target',
-        'line_follow',
-        'potential_field',
-        'lyapunov_pd',
-        'lyapunov_nonlinear',
-        'nav_function',
-        'chase',
-        '_'
-    ]
-
     # ============================================================================================================
     #                   S I M U L A T I O N       S E T U P
     # ============================================================================================================

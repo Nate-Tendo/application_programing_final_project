@@ -11,7 +11,7 @@ class Body:
     # TODO: Make it easier to initialize velocity at 0 (automatically convert 0 -> Vector2(0,0))
     
     def __init__(self, name: str, mass: float, position: tuple, velocity = (0,0), color = 'blue', 
-                 radius = 10, is_dynamically_updated = True, velocity_vec = False):
+                 radius = 10, is_dynamically_updated = True):
         self.name = name
         self.mass = mass # could add a density and size alternative instead of just mass
         self.position = np.array(position,dtype=float)
@@ -22,7 +22,7 @@ class Body:
         self.is_dynamically_updated = is_dynamically_updated
         self.path = np.array([self.position.copy()])
         
-        self.velocity_vec = velocity_vec
+        self.velocity_vec = False
         
         # Ensure no overlapping bodies
         for element in Body._instances:
@@ -145,8 +145,7 @@ class Spacecraft(Body):
     _index_counter = -999
 
     def __init__(self, name, mass, position, velocity = (0,0), color = 'white', thrust=0.0, 
-                 orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False,
-                 velocity_vec = False, thrust_vec = False, acc_vec = False, vector_field = True):
+                 orientation=0.0, radius = 1, is_dynamically_updated = True, is_target = False):
         super().__init__(name, mass, position, velocity, color, radius, is_dynamically_updated)
         self.max_thrust = thrust
         self.orientation = orientation  # radians
@@ -171,13 +170,13 @@ class Spacecraft(Body):
         # momentum setpoint (tune this)
         self.mpid_setpoint = 20.0   # example
 
-        self.velocity_vec = velocity_vec
-        self.thrust_vec = thrust_vec
+        self.velocity_vec = False
+        self.thrust_vec = False
         self.thrust = np.array([0.0, 0.0])
         self.thrust_mag = np.linalg.norm(self.thrust)
 
         # This is semi-cheating, but it'll work for now
-        self.plot_vectorfield = vector_field
+        self.plot_vectorfield = True
         self.path_visible = True
         self.plot_potentialfield = False
         self.planet_path_visible = False
