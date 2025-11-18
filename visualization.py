@@ -222,7 +222,7 @@ class PlotSettings:
         self.help_on = help_on
         self.rel_stats_on = rel_stats_on
 
-def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigationStrategy = '_', follow_path = (0,0)):
+def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigationStrategy = '_', follow_path = (0,0),scenario_name = "Unnamed Scenario"):
 
     # Create and Initialize Variables and Settings #
     # ======================================== #
@@ -277,6 +277,13 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
         .99, .99,'',transform=ax.transAxes, ha='right', va='top',
         fontsize=9,fontfamily='monospace',color='white',
         bbox=dict(facecolor='black', alpha=0.6,boxstyle='round,pad=0.5'))
+    
+    title_label = ax.text(
+        1, 0,f"{scenario_name} — Navigation Strategy: {navigationStrategy}",
+        transform=ax.transAxes, ha='right', va='bottom',
+        fontsize=9,fontfamily='monospace',color='white',
+        bbox=dict(facecolor='black', alpha=0.6,boxstyle='round,pad=0.5'))
+    
 
     # Vector Plotting #
     X,Y,U,V,M = vector_field(Bodies, window, spacing = window/10)
@@ -291,11 +298,11 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
         if navigationStrategy == 'manual_boosters':
             thrust_scale = 100
         else:
-            thrust_scale = 20
+            thrust_scale = 20        
         # Because we have the toggle, we'll always initialize these
         q_t = ax.quiver(qt['x'],qt['y'],qt['dx'],qt['dy'], scale = thrust_scale, angles='xy', scale_units='xy', color = 'orange', pivot = 'tail', zorder = 4)
         # Changed the scale here to be more visible
-        q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale= 1/20, angles='xy', scale_units='xy', color = 'pink', pivot = 'tail', zorder = 4)
+        q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale= 1/10, angles='xy', scale_units='xy', color = 'pink', pivot = 'tail', zorder = 4)
 
     global current_time 
     current_time = 0.0
@@ -304,7 +311,12 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
         global current_time
         # Always compute physics each frame
         Body.timestep(time_step = time_step)
-        rel_position, rel_velocity = mainship.compute_relative_to_target()
+        if mainship._find_target() is not None:
+            rel_position, rel_velocity = mainship.compute_relative_to_target()
+            relative_position_label.set_visible(settings.rel_stats_on)
+        else:
+            rel_position, rel_velocity = (0,0), (0,0)
+            relative_position_label.set_visible(False)
         # Units don't really matter here since it's just for display
         
         relative_position_label.set_text(f'Distance to Target:\n'
@@ -319,7 +331,7 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
             time_label.set_text(f'Time: {current_time:.0f} s')
 
         toggle_label.set_visible(settings.help_on)
-        relative_position_label.set_visible(settings.rel_stats_on)
+        
 
         for i, path in enumerate(path_lines):
             path.set_data(Bodies[i].path[:,0],Bodies[i].path[:,1])
@@ -367,7 +379,7 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
             q_t.set_UVC(qt['dx'], qt['dy'])
             q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
         
-        pot_artists = [*path_lines, *body_circles, *shadow_circles, q, follow_line, q_t, q_v, time_label, toggle_label, relative_position_label]  
+        pot_artists = [*path_lines, *body_circles, *shadow_circles, q, follow_line, q_t, q_v, time_label, toggle_label, relative_position_label,title_label]  
         
         artists = [artist for artist in pot_artists if artist is not None]
             

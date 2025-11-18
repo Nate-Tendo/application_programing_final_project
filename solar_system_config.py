@@ -55,7 +55,7 @@ def initialize_universe(scenario: str):
             Body(name= 'star2', mass = 2000, position = (200,0), velocity = (0,-1.11803398875), 
                  color = 'red', radius = 20, is_dynamically_updated = True)
         
-            Spacecraft(name ='spaceshipA', mass = 10, position = (-250,-250), velocity = (2,1), thrust= 1,
+            Spacecraft(name ='spaceshipA', mass = 10, position = (-250,-250), velocity = (2,1), thrust= 1.0,
                        color = 'white', radius = 10, is_dynamically_updated = True)
             
             Spacecraft(name ='target', mass = 0, position = (-300,220), velocity = (0,0),

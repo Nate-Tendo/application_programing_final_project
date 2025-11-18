@@ -111,9 +111,9 @@ class Body:
                     b.is_crashed = True
                     b.is_dynamically_updated = False
                     print(f"Crash between {b.name} and {b_c.name}")
-                    if isinstance(b_c, Spacecraft):
-                        b_c.is_crashed = True
-                        b_c.is_dynamically_updated = False
+                    # if isinstance(b_c, Spacecraft):
+                    #     b_c.is_crashed = True
+                    #     b_c.is_dynamically_updated = False
                         
             # If not crashed, then update position                
             b.position = new_position
