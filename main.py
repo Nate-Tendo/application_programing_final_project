@@ -14,8 +14,8 @@ if __name__ == "__main__":
     # scenario = '1'
     # scenario = '2'
     # scenario = '3'
-    scenario = '2b_figure8'
-    # scenario = '2b_figure8_chase'
+    # scenario = '2b_figure8'
+    scenario = '2b_figure8_chase'
     # scenario = '3b_figure8'
     # scenario = '3b_flower'
 
