@@ -16,9 +16,9 @@ if __name__ == "__main__":
     # ============================================================
     # scenario = '1'
     # scenario = '2'
-    scenario = '3'
+    # scenario = '3'
     # scenario = '2b_figure8'
-    # scenario = '2b_figure8_chase'
+    scenario = '2b_figure8_chase'
     # scenario = '3b_figure8'
     # scenario = '3b_flower'
 
@@ -30,10 +30,10 @@ if __name__ == "__main__":
     # navigationStrategy = 'stay_put'
     # navigationStrategy = 'thrust_towards_target'
     # navigationStrategy = 'line_follow'
-    navigationStrategy = 'potential_field'
+    # navigationStrategy = 'potential_field'
     # navigationStrategy = 'lyapunov_nonlinear'
     # navigationStrategy = 'lyapunov_pd'
-    # navigationStrategy = 'chase'
+    navigationStrategy = 'chase'
     # navigationStrategy = '_'
 
     # 3. Plotting Options and Start Animation
