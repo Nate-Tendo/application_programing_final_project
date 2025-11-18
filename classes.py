@@ -111,6 +111,9 @@ class Body:
                     b.is_crashed = True
                     b.is_dynamically_updated = False
                     print(f"Crash between {b.name} and {b_c.name}")
+                    if isinstance(b_c, Spacecraft):
+                        b_c.is_crashed = True
+                        b_c.is_dynamically_updated = False
                         
             # If not crashed, then update position                
             b.position = new_position
@@ -204,6 +207,14 @@ class Spacecraft(Body):
             if ship.is_target and ship is not self:
                 return ship
         return None
+    
+    def compute_relative_to_target(self):
+        target = self._find_target()
+        if target is None:
+            return None, None
+        rel_pos = self.get_relative_position(target)
+        rel_vel = self.get_relative_speed(target)
+        return rel_pos, rel_vel
 
     def _repulsive_accel(self, pos, repulsion_factor=10.0, k_rep=1.5e5):
         """Shared obstacle repulsion (returns acceleration)."""

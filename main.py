@@ -37,7 +37,7 @@ if __name__ == "__main__":
     # =============================================================================================================
 
     # 3. Plotting Options and Start Animation
-    time_step = .5  # Adjust time step for simulation here, high time steps can lead to instability in the physics simulation
+    time_step = 0.5  # Adjust time step for simulation here, high time steps can lead to instability in the physics simulation
     # =============================================================================================================
     ani, fig, ax = plot_universe_animation(Bodies, Ships, scenario_bounds, time_step, navigationStrategy, follow_path)
     # =============================================================================================================

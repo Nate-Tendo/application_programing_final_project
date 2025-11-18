@@ -187,10 +187,20 @@ def connect_on_key_function_to_ship(ship,settings,Bodies,Ships):
         elif event.key == 'r':
             reset_simulation(Bodies,Ships)
             print("Resetting Simulation")
+
+        elif event.key == 'h':
+            settings.help_on = not settings.help_on
+            print("Toggling Help Menu On/Off")
+
+        elif event.key == 's':
+            settings.rel_stats_on = not settings.rel_stats_on
+            print("Toggling Relative Stats On/Off")
         
     return on_key
 
 def reset_simulation(Bodies,Ships):
+    global current_time
+    current_time = 0.0 # Reset time counter
     for body in Bodies:
         body.position[:] = body.i_p
         body.velocity[:] = body.i_v
@@ -202,13 +212,15 @@ def reset_simulation(Bodies,Ships):
 
 class PlotSettings:
     
-    def __init__(self,vector_field = True, ship_path = True, potential_field = False, vel_vector = False, thrust_vector = False, planet_path = False):
+    def __init__(self,vector_field = True, ship_path = True, potential_field = False, vel_vector = False, thrust_vector = False, planet_path = False, help_on = True, rel_stats_on = True):
         self.vector_field_on = vector_field
         self.ship_path_on = ship_path
         self.potential_field_on = potential_field
         self.vel_vector_on = vel_vector
         self.thrust_vector_on = thrust_vector
         self.planet_path_on = planet_path
+        self.help_on = help_on
+        self.rel_stats_on = rel_stats_on
 
 def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigationStrategy = '_', follow_path = (0,0)):
 
@@ -216,8 +228,8 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
     # ======================================== #
 
 
-    settings = PlotSettings(vector_field = True, ship_path = True,
-                            potential_field = False, vel_vector = False, thrust_vector = False, planet_path = True)
+    settings = PlotSettings(vector_field = True, ship_path = True, help_on = True, rel_stats_on = True,
+                            potential_field = False, vel_vector = False, thrust_vector = False, planet_path = False)
 
     q = None
     follow_line = None
@@ -233,7 +245,7 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
     # ========== #
     #  PLOTTING  #
     # ========== #
-    fig, ax = plt.subplots(figsize=(6, 6), facecolor='black',layout='tight')
+    fig, ax = plt.subplots(figsize=(7, 6), facecolor='black',layout='tight')
     window = max(Scenario_Bounds.x_max - Scenario_Bounds.x_min, Scenario_Bounds.y_max - Scenario_Bounds.y_min)
     fig.canvas.mpl_disconnect(fig.canvas.manager.key_press_handler_id) # Disconnect default key bindings
     fig.canvas.mpl_connect('key_press_event', connect_on_key_function_to_ship(mainship,settings,Bodies,Ships))
@@ -241,6 +253,32 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
     # Initial Plotting
     body_circles, shadow_circles, path_lines = plot_universe(ax, Bodies, window, repulsion_factor=10.0)
 
+    # Labels #
+
+    time_label = ax.text(0.02, 0.95, '', transform=ax.transAxes, 
+                        fontsize=9,fontfamily='monospace',color='white',
+                        bbox=dict(facecolor='black', alpha=0.6, boxstyle='round'))
+
+    toggle_label = ax.text(0, 0,
+        'Control Toggles:\n'
+        '\n h — Help Menu'
+        '\n t — Thrust Vector'
+        '\n v — Velocity Vector'
+        '\n g — Gravity Field'
+        '\n f — Potential Field'
+        '\n p — Ship Paths'
+        '\n l — Planet Paths'
+        '\n r — Reset Simulation'
+        '\n s — Relative Stats',
+        transform=ax.transAxes, color='white', fontsize=9, fontfamily='monospace', va='bottom',
+        bbox=dict(facecolor='black', alpha=0.5, boxstyle='round,pad=0.4'))
+    
+    relative_position_label = ax.text(
+        .99, .99,'',transform=ax.transAxes, ha='right', va='top',
+        fontsize=9,fontfamily='monospace',color='white',
+        bbox=dict(facecolor='black', alpha=0.6,boxstyle='round,pad=0.5'))
+
+    # Vector Plotting #
     X,Y,U,V,M = vector_field(Bodies, window, spacing = window/10)
     q = ax.quiver(X, Y, U, V, M, angles='xy', scale_units='xy', cmap='plasma', pivot='tail',zorder=-1)
 
@@ -251,7 +289,7 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
         qv, qt = body_vectors([mainship])    
 
         if navigationStrategy == 'manual_boosters':
-            thrust_scale = 300
+            thrust_scale = 100
         else:
             thrust_scale = 20
         # Because we have the toggle, we'll always initialize these
@@ -259,10 +297,30 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
         # Changed the scale here to be more visible
         q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale= 1/20, angles='xy', scale_units='xy', color = 'pink', pivot = 'tail', zorder = 4)
 
+    global current_time 
+    current_time = 0.0
 
     def update(frame):
+        global current_time
         # Always compute physics each frame
         Body.timestep(time_step = time_step)
+        rel_position, rel_velocity = mainship.compute_relative_to_target()
+        # Units don't really matter here since it's just for display
+        
+        relative_position_label.set_text(f'Distance to Target:\n'
+                                         f'({rel_position[0]:.0f}, {rel_position[1]:00.0f}) m\n'
+                                         f' |d|: {np.linalg.norm(rel_position):00.0f} m\n'
+                                         f'Relative Velocity:\n'
+                                         f'({rel_velocity[0]:.0f}, {rel_velocity[1]:.0f}) m/s\n'
+                                         f'|dv|: {np.linalg.norm(rel_velocity):.0f} m/s')
+
+        current_time += time_step
+        if frame % 5 == 0: # Reduce speed for better visualization
+            time_label.set_text(f'Time: {current_time:.0f} s')
+
+        toggle_label.set_visible(settings.help_on)
+        relative_position_label.set_visible(settings.rel_stats_on)
+
         for i, path in enumerate(path_lines):
             path.set_data(Bodies[i].path[:,0],Bodies[i].path[:,1])
 
@@ -278,7 +336,7 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
                 path.set_visible(settings.planet_path_on)
                 if Bodies[i].is_dynamically_updated == False:
                     path.set_data([],[])
-                
+
         # Update vector field if any Bodies are dynamic
         q.set_visible(settings.vector_field_on)
         if settings.vector_field_on:
@@ -309,7 +367,7 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
             q_t.set_UVC(qt['dx'], qt['dy'])
             q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
         
-        pot_artists = [*path_lines, *body_circles, *shadow_circles, q, follow_line, q_t, q_v]  
+        pot_artists = [*path_lines, *body_circles, *shadow_circles, q, follow_line, q_t, q_v, time_label, toggle_label, relative_position_label]  
         
         artists = [artist for artist in pot_artists if artist is not None]
             
