@@ -1,11 +1,8 @@
 import numpy as np
-from typing import List
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.ticker import MultipleLocator
 from matplotlib.patches import Circle
-import matplotlib.collections # import PatchCollection
-import math
 from classes import Body, Spacecraft, GRAVITY_CONSTANT, EPSILON_GRAVITY
 from solar_system_config import initialize_universe
 from scipy.interpolate import CubicSpline, splev
@@ -273,7 +270,7 @@ if __name__ == "__main__":
     # ============================================================================================================
     #                   S I M U L A T I O N       S E T U P
     # ============================================================================================================
-    scenario = '3' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
+    scenario = '3b_flower' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
     plotVectorField = True
     plotPotentialField = False
     navigationStrategy = 'potential_field' #Options: 'stay_put', 'thrust_towards_target','line_follow', 'potential_field', 'lyapunov_pd','lyapunov_nonlinear','nav_function','chase', '_'

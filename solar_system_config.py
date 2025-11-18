@@ -1,5 +1,6 @@
 import numpy as np
-from classes import Body, Spacecraft, Bounds, GRAVITY_CONSTANT, EPSILON_GRAVITY
+from classes import Body, Spacecraft, GRAVITY_CONSTANT
+from utils import Bounds
 
 def initialize_universe(scenario: str):
     """
