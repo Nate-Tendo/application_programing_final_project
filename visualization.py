@@ -228,7 +228,7 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
     # ======================================== #
 
 
-    settings = PlotSettings(vector_field = True, ship_path = True, help_on = True, rel_stats_on = True,
+    settings = PlotSettings(vector_field = True, ship_path = True, help_on = True, rel_stats_on = False,
                             potential_field = False, vel_vector = False, thrust_vector = False, planet_path = False)
 
     q = None
