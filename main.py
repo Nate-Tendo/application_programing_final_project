@@ -122,9 +122,17 @@ def connect_on_key_function_to_ship(ship):
             ship.vector_field = not ship.vector_field
             print("Toggling Gravity Field On/Off")
 
+        elif event.key == 'f':
+            ship.plot_potentialfield = not ship.plot_potentialfield
+            print("Toggling Potential Field Visualization")
+
         elif event.key == 'p':
             ship.path_visible = not ship.path_visible
             print("Toggling Path Visibility for Ships")
+
+        elif event.key == 'l':
+            ship.planet_path_visible = not ship.planet_path_visible
+            print("Toggling Planet Path Visibility")
 
         elif event.key == 'r':
             reset_simulation()
@@ -244,8 +252,8 @@ def reset_simulation():
         body.velocity[:] = body.i_v
         body.is_crashed = False
         body.is_dynamically_updated = body.i_dynamic_state
+        body.path = body.i_path
     for ship in Spacecraft._instances:
-        ship.path = ship.i_path
         ship.fuel_spent = 0
         
 if __name__ == "__main__": 
@@ -267,6 +275,7 @@ if __name__ == "__main__":
     # ============================================================================================================
     scenario = '3' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
     plotVectorField = True
+    plotPotentialField = False
     navigationStrategy = 'potential_field' #Options: 'stay_put', 'thrust_towards_target','line_follow', 'potential_field', 'lyapunov_pd','lyapunov_nonlinear','nav_function','chase', '_'
     followPath = (-300,220)
     dt = .5
@@ -318,21 +327,28 @@ if __name__ == "__main__":
         q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale=.02, angles='xy', scale_units='xy', color = 'pink', pivot = 'tail', zorder = 4)
     
     path_lines = []
-    for i, ship in enumerate(ships):
-        path_lines.append(ax.plot([],[], color = ship.color, linewidth = 1.5, zorder = 0)[0])
+    for i, body in enumerate(bodies):
+        path_lines.append(ax.plot([],[], color = body.color, linewidth = 1.5, zorder = 0)[0])
 
     def update(frame):
         # Always compute physics each frame
         Body.timestep(time_step = dt)
         for i, path in enumerate(path_lines):
-            path.set_data(ships[i].path[:,0],ships[i].path[:,1])
-            path.set_visible(mainship.path_visible)
-            if ships[i].is_crashed:
-                path.set_color('red')
-                path.set_linestyle('--')
-            else:
-                path.set_color(ships[i].color)
+            path.set_data(bodies[i].path[:,0],bodies[i].path[:,1])
+
+            if isinstance(bodies[i], Spacecraft):
+                path.set_visible(mainship.path_visible)
+                if bodies[i].is_crashed:
+                    path.set_color('red')
+                    path.set_linestyle('--')
+                else:
+                    path.set_color(bodies[i].color)
                 path.set_linestyle('-')
+            else :
+                path.set_visible(mainship.planet_path_visible)
+                if bodies[i].is_dynamically_updated == False:
+                    path.set_data([],[])
+                
         
         # Update vector field if any bodies are dynamic
         q.set_visible(mainship.vector_field)
@@ -348,9 +364,11 @@ if __name__ == "__main__":
                 circle.center = (body.x, body.y)
         
         # Update shadow rings
+        
         for shadow, body in zip(shadow_circles, [b for b in Body._instances if not isinstance(b, Spacecraft)]):
             if body.is_dynamically_updated:
                 shadow.center = (body.x, body.y)
+            shadow.set_visible(mainship.plot_potentialfield)
 
         if ships:
             qv,qt,qa = body_vectors([mainship])
@@ -364,7 +382,7 @@ if __name__ == "__main__":
             q_a.set_UVC(qa['dx_a'], qa['dy_a'])
             q_a.set_offsets(np.array([[qa['x'], qa['y']]]))
         
-        pot_artists = [*path_lines, *body_circles, q, follow_line, q_t, q_v, q_a]  
+        pot_artists = [*path_lines, *body_circles, *shadow_circles, q, follow_line, q_t, q_v, q_a]  
         
         artists = [artist for artist in pot_artists if artist is not None]
             

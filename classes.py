@@ -226,6 +226,8 @@ class Spacecraft(Body):
         # This is semi-cheating, but it'll work for now
         self.plot_vectorfield = vector_field
         self.path_visible = True
+        self.plot_potentialfield = False
+        self.planet_path_visible = False
         
         # For debugging and plotting
 
