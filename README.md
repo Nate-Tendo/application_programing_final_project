@@ -45,7 +45,8 @@ Windows:
     python -m venv .venv
     source .venv/Scripts/activate
 
-### 3. Install dependencies
+### 3. (Optional) Install dependencies 
+(Should not be required in most instances -- these come included with standard python dist)
 
     pip install numpy matplotlib
 
@@ -86,7 +87,6 @@ Navigation/control algorithms include:
 - Potential Fields Path Solver
 - Chase / Pursuit Algorithms
 - Momentum Dampening
-- Step-Decision Algorithms
 
 Switching controllers is done inside main.py.
 
@@ -111,7 +111,8 @@ Control Toggles:
 **F** – Toggle Potential Fields  
 **P** – Toggle Ship Paths  
 **L** – Toggle Planet Paths  
-**R** – Reset Simulation  
+**R** – Reset Simulation
+**S** – Relative Stats (Position, Velocity)
 
 
 ---
@@ -166,6 +167,11 @@ How the program flows:
 Use of AI Tools:
 AI (ChatGPT) was used for debugging assistance, problem explanation, and generation of small helper functions or boilerplate code.
 All AI-generated content was verified, edited, and validated by project members.
+Specifically, the following functions/capabilities were generated using ChatGPT:
+-  utils/segment_circle_intersect
+-  classes/thrust_ctrl_law cases 'lyapunov_pd' and 'lyapunov_nonlinear' (fun extra potential navigation strategies)
+-  Getting unstuck with visualization bugs and potential_field control bugs
+- Making formatting of plot text prettier and more user-friendly.
 
 ---
 
@@ -175,7 +181,7 @@ All AI-generated content was verified, edited, and validated by project members.
 |----------|-------------------------------------------------------------------------------|
 | Philip   | Dynamic Solver, Vector Field Visualization, PID Stay-Put and Line-Following Algorithms |
 | Nathan   | Class Structuring, Git Guru, Potential Fields Path Solver, Momentum Control Algorithms |
-| Isaac    | Gravity Physics, UX, Visualization, Chase Algorithms, Step-Decision Algorithm, README documentation |
+| Isaac    | Gravity Physics, UX, Visualization, Chase Algorithms, Step-Decision Algorithm (in-progress), Overall Synthesis and Feature Integration|
 
 ---
 
@@ -193,6 +199,76 @@ All AI-generated content was verified, edited, and validated by project members.
 These assumptions simplify computation and keep the focus on navigation rather than astrophysical realism.
 
 ---
+
+# Detailed Requirements
+1. Simulate a ‘universe’ environment with the following features:
+    -  Pre-defined universe scenarios that mimic various orbits/dynamics/interacting fields. ✅
+    - Celestial body gravity interaction can be switched on/off ✅
+
+2. Create a ‘spaceship’ in environment with the following features:
+    - Affected by gravitational force field ✅
+    - Attributes: initial velocity, orientation, etc. ✅
+    - (optional) User can generate a thrust input using…
+        - Arrow keys ✅
+        - A pre-programmed flight-plan ❌ (For future work)
+
+3. Visualize the spacecraft’s navigation:
+    - Make a visually appealing GUI that allows the user to toggle off/on various visualization tools ✅
+    - Plotting the expected trajectory of the spaceship given current parameters ✅
+
+4. Compute and display state variables of spaceship relative to target ✅
+
+5. (Stretch) Demonstrate various navigation strategies within the environment ✅
+
+### Requirements History
+We pitched the following on our original document to Dr. Pryor.
+
+After discussion, Dr. Pyror invited us to:
+(1) Instead of reinforcement learning, focus on getting relative position/velocity vectors.
+(2) Additionally, we discussed a probabilistic approach to the path decision making --> this was fulfilled using the 'potential field' navigation. (3) We streched by developing many robust navigation algorithms -- above and beyond the original scope that we ptiched.
+
+Future work will do more to incorporate optimization.
+
+1. Create a simulation ‘universe’ environment with the following features:
+
+   * Pseudo-randomly generated celestial bodies (position, mass, etc.)
+   * Simplest: Just stars, planets, asteroids that do not have interacting gravitational fields
+   * Medium: Solar systems with predefined gravitational fields that interact with each other
+   * Advanced (Optional): All generated objects have interacting gravitational fields
+   * (Optional) Ability to plot a 3D space-time graph to visualize gravity fields
+
+2. Create a ‘spaceship’ in the environment with the following features:
+
+   * Affected by gravitational force field
+   * Attributes: initial velocity, orientation, etc.
+   * (Optional) User can generate a thrust input using:
+
+     * Arrow keys
+     * Pre-programmed flight-plan
+
+3. Generate and display the anticipated path of the spacecraft:
+
+   * Based on current trajectory, speed, and gravitational influences
+   * Accomplish using a simple numerical solver in the gravitational field
+   * Path updates based on continuously changing variables such as:
+
+     * Current trajectory
+     * Current speed
+     * External forces (e.g., gravity, thrust)
+
+4. (Optional) Use Reinforcement Learning to optimize spacecraft navigation:
+
+   * Train the spaceship to optimally navigate the universe toward a target
+   * Potential optimization goals:
+
+     * Minimize time
+     * Minimize fuel consumption
+     * Maximize accuracy
+
+
+
+
+
 
 # License
 
