@@ -217,7 +217,15 @@ if __name__ == "__main__":
     # ============================================================================================================
     #                   S I M U L A T I O N       S E T U P
     # ============================================================================================================
-    scenario = '3' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
+    #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
+    # scenario = '1'
+    # scenario = '2'
+    # scenario = '3'
+    # scenario = '2b_figure8'
+    # scenario = '2b_figure8_chase'
+    # scenario = '3b_figure8'
+    scenario = '3b_flower'
+
     plotVectorField = True
     plotPotentialField = False
     navigationStrategy = 'potential_field' #Options: 'stay_put', 'thrust_towards_target','line_follow', 'potential_field', 'lyapunov_pd','lyapunov_nonlinear','nav_function','chase', '_'
