@@ -265,6 +265,15 @@ def threebody_figeight(m,D):
          radius = 50, 
          is_dynamically_updated = True)
     
+    Spacecraft(name ='spaceshipA', # gravity helping
+            mass = 0, 
+            position = (-99999,0), 
+            velocity = (0,0),
+            radius = 0,
+            color = 'white',
+            thrust= 0,
+            is_dynamically_updated= False)
+    
 def threebody_flower(m,D):
     r_dims = np.array([(0.0132604844,0), (1.4157286016,0), (-1.4289890859,0)])
     v_dims = np.array([(0,1.054151921), (0,-0.2101466639), (0,-0.8440052572)])
@@ -303,3 +312,12 @@ def threebody_flower(m,D):
          color = '#3f54ba',   
          radius = 50, 
          is_dynamically_updated = True)
+    
+    Spacecraft(name ='spaceshipA', # gravity helping
+        mass = 0, 
+        position = (-99999,0), 
+        velocity = (0,0),
+        radius = 0,
+        color = 'white',
+        thrust= 0,
+        is_dynamically_updated= False)
