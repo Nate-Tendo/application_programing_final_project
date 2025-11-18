@@ -47,7 +47,7 @@ def initialize_universe(scenario: str):
                        is_dynamically_updated = False,
                        is_target = True)
     
-            bounds = Bounds(-600, 600, -600, 600)
+            scenario_bounds = Bounds(-600, 600, -600, 600)
 
         case '2': # Orbiting ship and target, stationary planet
             Body(name= 'planet1', 
@@ -76,7 +76,7 @@ def initialize_universe(scenario: str):
                        is_dynamically_updated = True,
                        is_target = True)
     
-            bounds = Bounds(-600, 600, -600, 600)
+            scenario_bounds = Bounds(-600, 600, -600, 600)
 
         case '3': # Orbiting moon, ship, and target
             Body(name= 'planet1', 
@@ -115,7 +115,7 @@ def initialize_universe(scenario: str):
                        is_dynamically_updated = True,
                        is_target = True)
     
-            bounds = Bounds(-600, 600, -600, 600)
+            scenario_bounds = Bounds(-600, 600, -600, 600)
 
         case '2b_figure8': # Stable figure 8 2 body
             Body(
@@ -154,7 +154,7 @@ def initialize_universe(scenario: str):
                        is_target=True,
                        is_dynamically_updated = False)
     
-            bounds = Bounds(-300, 300, -300, 300)
+            scenario_bounds = Bounds(-300, 300, -300, 300)
 
         case '2b_figure8_chase': # Stable figure 8 2 body
             Body(
@@ -193,15 +193,15 @@ def initialize_universe(scenario: str):
                        is_target=True,
                        is_dynamically_updated = True)
     
-            bounds = Bounds(-300, 300, -300, 300)
+            scenario_bounds = Bounds(-300, 300, -300, 300)
 
         case '3b_figure8': # Figure-eight 3 body
             threebody_figeight(2000, 400)
-            bounds = Bounds(-600, 600, -600, 600)
+            scenario_bounds = Bounds(-600, 600, -600, 600)
         
         case '3b_flower': # Flower shape 3 body
             threebody_flower(2000, 500)
-            bounds = Bounds(-600, 600, -600, 600)
+            scenario_bounds = Bounds(-600, 600, -600, 600)
             
             # Spacecraft(name ='spaceshipA', # gravity helping
             #            mass = 10, 
@@ -211,8 +211,11 @@ def initialize_universe(scenario: str):
             #            color = 'white',
             #            thrust=1,
             #            thrust_vec = True)   
-            
-    return bounds
+
+    Bodies = Body._instances
+    Ships = Spacecraft._instances
+
+    return scenario_bounds, Bodies, Ships
 
 def onebody_circular_orbit(r,G,m):
     v = np.sqrt(G*m/r)

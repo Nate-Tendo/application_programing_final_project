@@ -7,48 +7,7 @@ from classes import Body, Spacecraft, GRAVITY_CONSTANT, EPSILON_GRAVITY
 from solar_system_config import initialize_universe
 from scipy.interpolate import CubicSpline, splev
 
-def compute_line_gravity_cost(x_coords: np.ndarray, y_coords: np.ndarray):
-    """
-    Compute the gravitational 'cost' along a line defined by x,y coordinates.
 
-    Parameters
-    ----------
-    x_coords, y_coords : array-like
-        Arrays (or lists) of x and y coordinates along the line. Must have the same length.
-
-    Returns
-    -------
-    total_vector : np.array
-        Sum of all equal-and-opposite gravitational vectors (represents total imbalance).
-    line_vectors : list of np.array
-        The opposite-force vectors at each line point.
-    total_magnitude : float
-        The magnitude of the summed total_vector (scalar cost).
-    """
-
-    assert len(x_coords) == len(y_coords), "x_coords and y_coords must be the same length."
-
-    total_vector = np.array((0.0, 0.0),dtype=float)
-    line_vectors = []
-
-    for x, y in zip(x_coords, y_coords):
-        point = np.array((x, y),dtype=float)
-        total_gravity = np.array((0.0, 0.0),dtype=float)
-        for body in Body._instances:
-            direction = body.position - point
-            distance = np.linalg.norm(direction)
-            if distance < EPSILON_GRAVITY:
-                continue
-            g_force_mag = GRAVITY_CONSTANT * body.mass / (distance**2 + EPSILON_GRAVITY**2)
-            total_gravity += (direction / distance) * g_force_mag
-        # Equal and opposite (to make net zero)
-        opposite_force = total_gravity * -1
-        line_vectors.append(opposite_force)
-        total_vector += opposite_force
-
-    total_magnitude = np.linalg.norm(total_vector)
-
-    return total_vector, line_vectors, total_magnitude
 
 def plot_universe(ax, window=100, repulsion_factor=10.0): 
     ax.set_facecolor('black')
@@ -61,11 +20,11 @@ def plot_universe(ax, window=100, repulsion_factor=10.0):
     ax.xaxis.set_major_locator(locator)
     ax.yaxis.set_major_locator(locator)
     
-    colors_bodies = [body.color for body in Body._instances] 
+    colors_Bodies = [body.color for body in Bodies] 
     body_circles = []
     shadow_circles = []
 
-    for body in Body._instances:
+    for body in Bodies:
         # main body disk
         circle = plt.Circle((body.x, body.y), body.radius, color=body.color, zorder=3)
         ax.add_patch(circle)
@@ -137,12 +96,12 @@ def connect_on_key_function_to_ship(ship):
         
     return on_key
 
-def vector_field(bodies, window_size, spacing=100, max_acc=5e-4):
+def vector_field(Bodies, window_size, spacing=100, max_acc=5e-4):
     """
-    Compute a 2D vector field of gravitational acceleration from bodies.
+    Compute a 2D vector field of gravitational acceleration from Bodies.
     
     Parameters:
-        bodies : list of Body objects
+        Bodies : list of Body objects
         window_size : half-width/height of the grid
         spacing : spacing between grid points
         max_acc : maximum acceleration magnitude for visualization
@@ -161,7 +120,7 @@ def vector_field(bodies, window_size, spacing=100, max_acc=5e-4):
     
     soft = 1e-3  # small softening to prevent division by zero
     
-    for body in bodies:
+    for body in Bodies:
         if not isinstance(body, Spacecraft):
             b_x, b_y = body.x, body.y
             m = body.mass
@@ -185,12 +144,12 @@ def vector_field(bodies, window_size, spacing=100, max_acc=5e-4):
     
     return X, Y, U_disp, V_disp, Mag
 
-def body_vectors(bodies,t_scaling=5000,v_scaling=5000):
+def body_vectors(Bodies,t_scaling=5000,v_scaling=5000):
     vel_vec = None
     thr_vec = None
     accel_vel = None
     
-    for body in bodies:
+    for body in Bodies:
         x = body.x
         y = body.y
         dx = body.vx
@@ -199,7 +158,7 @@ def body_vectors(bodies,t_scaling=5000,v_scaling=5000):
             vel_vec =  {'x':x, 'y':y,'dx':dx, 'dy':dy}
         else:
              vel_vec = {'x':x, 'y':y,'dx':0, 'dy':0}
-    for body in bodies:
+    for body in Bodies:
         if isinstance(body,Spacecraft):
             # print('I got it')
             x = body.x
@@ -244,13 +203,13 @@ def points_spline(x,y,precision=1000, lw=2):
     # dxdt, dydt = splev(ti, tck, der=1)
 
 def reset_simulation():
-    for body in Body._instances:
+    for body in Bodies:
         body.position[:] = body.i_p
         body.velocity[:] = body.i_v
         body.is_crashed = False
         body.is_dynamically_updated = body.i_dynamic_state
         body.path = body.i_path
-    for ship in Spacecraft._instances:
+    for ship in ships:
         ship.fuel_spent = 0
         
 if __name__ == "__main__": 
@@ -270,7 +229,7 @@ if __name__ == "__main__":
     # ============================================================================================================
     #                   S I M U L A T I O N       S E T U P
     # ============================================================================================================
-    scenario = '3b_flower' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
+    scenario = '3' #Options '1', '2', '3', '2b_figure8', '3b_figure8', '3b_flower', '2b_figure8_chase'
     plotVectorField = True
     plotPotentialField = False
     navigationStrategy = 'potential_field' #Options: 'stay_put', 'thrust_towards_target','line_follow', 'potential_field', 'lyapunov_pd','lyapunov_nonlinear','nav_function','chase', '_'
@@ -286,17 +245,16 @@ if __name__ == "__main__":
     q_v = None
     q_t = None
     q_a = None
-    ships = Spacecraft._instances
-    bodies = Body._instances
-    bounds = initialize_universe(scenario)
-    window = max(bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
+
+    scenario_bounds, Bodies, ships = initialize_universe(scenario)
+    window = max(scenario_bounds.x_max - scenario_bounds.x_min, scenario_bounds.y_max - scenario_bounds.y_min)
     
     # PLOTTING #
     # ========== #
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black',layout='tight')
     fig.canvas.mpl_disconnect(fig.canvas.manager.key_press_handler_id) # Disconnect default key bindings
     fig.canvas.mpl_connect('key_press_event', connect_on_key_function_to_ship(ships[0]))
-    X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
+    X,Y,U,V,M = vector_field(Bodies, window, spacing = window/10)
 
     # Initial Plotting
     body_circles, shadow_circles = plot_universe(ax, window, repulsion_factor=10.0)
@@ -324,45 +282,45 @@ if __name__ == "__main__":
         q_v = ax.quiver(qv['x'],qv['y'],qv['dx'],qv['dy'], scale=.02, angles='xy', scale_units='xy', color = 'pink', pivot = 'tail', zorder = 4)
     
     path_lines = []
-    for i, body in enumerate(bodies):
+    for i, body in enumerate(Bodies):
         path_lines.append(ax.plot([],[], color = body.color, linewidth = 1.5, zorder = 0)[0])
 
     def update(frame):
         # Always compute physics each frame
         Body.timestep(time_step = dt)
         for i, path in enumerate(path_lines):
-            path.set_data(bodies[i].path[:,0],bodies[i].path[:,1])
+            path.set_data(Bodies[i].path[:,0],Bodies[i].path[:,1])
 
-            if isinstance(bodies[i], Spacecraft):
+            if isinstance(Bodies[i], Spacecraft):
                 path.set_visible(mainship.path_visible)
-                if bodies[i].is_crashed:
+                if Bodies[i].is_crashed:
                     path.set_color('red')
                     path.set_linestyle('--')
                 else:
-                    path.set_color(bodies[i].color)
+                    path.set_color(Bodies[i].color)
                 path.set_linestyle('-')
             else :
                 path.set_visible(mainship.planet_path_visible)
-                if bodies[i].is_dynamically_updated == False:
+                if Bodies[i].is_dynamically_updated == False:
                     path.set_data([],[])
                 
         
-        # Update vector field if any bodies are dynamic
+        # Update vector field if any Bodies are dynamic
         q.set_visible(mainship.vector_field)
         if mainship.vector_field:
-            if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in bodies):   
-                X,Y,U,V,M = vector_field(bodies, window, spacing = window/10)
+            if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in Bodies):   
+                X,Y,U,V,M = vector_field(Bodies, window, spacing = window/10)
                 q.set_UVC(U, V)
                 q.set_array(M.flatten())
                 
         # Update body positions (if they move)
-        for circle, body in zip(body_circles, Body._instances):
+        for circle, body in zip(body_circles, Bodies):
             if body.is_dynamically_updated:
                 circle.center = (body.x, body.y)
         
         # Update shadow rings
         
-        for shadow, body in zip(shadow_circles, [b for b in Body._instances if not isinstance(b, Spacecraft)]):
+        for shadow, body in zip(shadow_circles, [b for b in Bodies if not isinstance(b, Spacecraft)]):
             if body.is_dynamically_updated:
                 shadow.center = (body.x, body.y)
             shadow.set_visible(mainship.plot_potentialfield)

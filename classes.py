@@ -1,9 +1,8 @@
 import numpy as np
-from utils import segment_circle_intersect
+from utils import segment_circle_intersect, Bounds
 
 GRAVITY_CONSTANT = 1
 EPSILON_GRAVITY = 1e-8
-
 
 class Body:
     """Base class for planets, moons, stars, spacecraft."""
@@ -560,3 +559,47 @@ class Spacecraft(Body):
             if a_mag > a_max and a_mag > 0:
                 a = a / a_mag * a_max
         return a
+    
+
+def compute_line_gravity_cost(x_coords: np.ndarray, y_coords: np.ndarray):
+    """
+    Compute the gravitational 'cost' along a line defined by x,y coordinates.
+
+    Parameters
+    ----------
+    x_coords, y_coords : array-like
+        Arrays (or lists) of x and y coordinates along the line. Must have the same length.
+
+    Returns
+    -------
+    total_vector : np.array
+        Sum of all equal-and-opposite gravitational vectors (represents total imbalance).
+    line_vectors : list of np.array
+        The opposite-force vectors at each line point.
+    total_magnitude : float
+        The magnitude of the summed total_vector (scalar cost).
+    """
+
+    assert len(x_coords) == len(y_coords), "x_coords and y_coords must be the same length."
+
+    total_vector = np.array((0.0, 0.0),dtype=float)
+    line_vectors = []
+
+    for x, y in zip(x_coords, y_coords):
+        point = np.array((x, y),dtype=float)
+        total_gravity = np.array((0.0, 0.0),dtype=float)
+        for body in Body._instances:
+            direction = body.position - point
+            distance = np.linalg.norm(direction)
+            if distance < EPSILON_GRAVITY:
+                continue
+            g_force_mag = GRAVITY_CONSTANT * body.mass / (distance**2 + EPSILON_GRAVITY**2)
+            total_gravity += (direction / distance) * g_force_mag
+        # Equal and opposite (to make net zero)
+        opposite_force = total_gravity * -1
+        line_vectors.append(opposite_force)
+        total_vector += opposite_force
+
+    total_magnitude = np.linalg.norm(total_vector)
+
+    return total_vector, line_vectors, total_magnitude
