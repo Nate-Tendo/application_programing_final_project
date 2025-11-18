@@ -71,10 +71,10 @@ def initialize_universe(scenario: str):
                  color = 'red', radius = 20, is_dynamically_updated = True)
         
             Spacecraft(name ='spaceshipA', mass = 10.0, position = (0,0), velocity = (0,0),
-                       radius = 2,color = 'white', thrust= 20.0)
+                       radius = 3,color = 'white', thrust= 20.0)
             
             Spacecraft(name ='target', mass = 10, position = (10,0),velocity = (1.1,0),
-                       color = 'green', radius = 5, is_dynamically_updated = True, is_target=True)
+                       color = 'green', radius = 7, is_dynamically_updated = True, is_target=True)
     
             scenario_bounds = Bounds(-300, 300, -300, 300)
 

@@ -165,14 +165,6 @@ class Spacecraft(Body):
         
         self.thrust = np.array([0.0, 0.0])
         self.thrust_mag = np.linalg.norm(self.thrust)
-
-        # This is semi-cheating, but it'll work for now
-        self.plot_vectorfield = True
-        self.path_visible = True
-        self.plot_potentialfield = False
-        self.planet_path_visible = False
-        self.velocity_vec = False
-        self.thrust_vec = False
         
         # For debugging and plotting
 

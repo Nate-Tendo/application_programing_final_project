@@ -7,93 +7,7 @@ from scipy.interpolate import CubicSpline, splev
 
 from classes import Body, Spacecraft, GRAVITY_CONSTANT, EPSILON_GRAVITY
 from utils import valid_navigation_strategies
-
-def plot_universe(ax, Bodies, window=100, repulsion_factor=10.0): 
-    ax.set_facecolor('black')
-    
-    ax.set_xticklabels([])
-    ax.set_yticklabels([])
-    ax.set_frame_on(False)
-    ax.tick_params(tick1On=False)
-    locator = MultipleLocator(window / 10)
-    ax.xaxis.set_major_locator(locator)
-    ax.yaxis.set_major_locator(locator)
-    
-    colors_Bodies = [body.color for body in Bodies] 
-    body_circles = []
-    shadow_circles = []
-
-    for body in Bodies:
-        # main body disk
-        circle = plt.Circle((body.x, body.y), body.radius, color=body.color, zorder=3)
-        ax.add_patch(circle)
-        body_circles.append(circle)
-
-        # gravitational / repulsive “shadow” (only for non-spacecraft)
-        if not isinstance(body, Spacecraft):
-            safe_zone = body.radius * repulsion_factor
-            shadow = plt.Circle(
-                (body.x, body.y),
-                safe_zone,
-                color='red',
-                alpha=0.08,
-                lw=1.0,
-                fill=True,
-                zorder=1,
-            )
-            ax.add_patch(shadow)
-            shadow_circles.append(shadow)
-
-    ax.set_aspect('equal', adjustable='box')
-    ax.set(xlim=[-window, window], ylim=[-window, window])
-    plt.tight_layout(pad=0.5)
-
-    return body_circles, shadow_circles
-
-def connect_on_key_function_to_ship(ship):
-    def on_key(event):
         
-        if event.key == 'up':
-            ship.list_boosters_on['up'] = 1
-    
-        elif event.key == 'down':
-            ship.list_boosters_on['down'] = 1
-    
-        elif event.key == 'right':
-            ship.list_boosters_on['right'] = 1
-    
-        elif event.key == 'left':
-            ship.list_boosters_on['left'] = 1
-
-        elif event.key == 't':
-            ship.thrust_vec = not ship.thrust_vec
-            print("Toggling Thrust Vector for Ship:", ship.name)
-
-        elif event.key == 'v':
-            ship.velocity_vec = not ship.velocity_vec
-            print("Toggling Velocity Vector for Ship:", ship.name)
-            
-        elif event.key == 'g':
-            ship.plot_vectorfield = not ship.plot_vectorfield
-            print("Toggling Gravity Field On/Off")
-
-        elif event.key == 'f':
-            ship.plot_potentialfield = not ship.plot_potentialfield
-            print("Toggling Potential Field Visualization")
-
-        elif event.key == 'p':
-            ship.path_visible = not ship.path_visible
-            print("Toggling Path Visibility for Ships")
-
-        elif event.key == 'l':
-            ship.planet_path_visible = not ship.planet_path_visible
-            print("Toggling Planet Path Visibility")
-
-        elif event.key == 'r':
-            reset_simulation()
-            print("Resetting Simulation")
-        
-    return on_key
 
 def vector_field(Bodies, window_size, spacing=100, max_acc=5e-4):
     """
@@ -189,7 +103,94 @@ def points_spline(x,y,precision=1000, lw=2):
     plt.plot(x_new,spl(x_new),zorder=2)
     # dxdt, dydt = splev(ti, tck, der=1)
 
-def reset_simulation():
+def plot_universe(ax, Bodies, window=100, repulsion_factor=10.0): 
+    ax.set_facecolor('black')
+    
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.set_frame_on(False)
+    ax.tick_params(tick1On=False)
+    locator = MultipleLocator(window / 10)
+    ax.xaxis.set_major_locator(locator)
+    ax.yaxis.set_major_locator(locator)
+    
+    colors_Bodies = [body.color for body in Bodies] 
+    body_circles = []
+    shadow_circles = []
+
+    for body in Bodies:
+        # main body disk
+        circle = plt.Circle((body.x, body.y), body.radius, color=body.color, zorder=3)
+        ax.add_patch(circle)
+        body_circles.append(circle)
+
+        # gravitational / repulsive “shadow” (only for non-spacecraft)
+        if not isinstance(body, Spacecraft):
+            safe_zone = body.radius * repulsion_factor
+            shadow = plt.Circle(
+                (body.x, body.y),
+                safe_zone,
+                color='red',
+                alpha=0.08,
+                lw=1.0,
+                fill=True,
+                zorder=1,
+            )
+            ax.add_patch(shadow)
+            shadow_circles.append(shadow)
+
+    ax.set_aspect('equal', adjustable='box')
+    ax.set(xlim=[-window, window], ylim=[-window, window])
+    plt.tight_layout(pad=0.5)
+
+    return body_circles, shadow_circles
+
+def connect_on_key_function_to_ship(ship,settings,Bodies):
+    def on_key(event):
+        
+        if event.key == 'up':
+            ship.list_boosters_on['up'] = 1
+    
+        elif event.key == 'down':
+            ship.list_boosters_on['down'] = 1
+    
+        elif event.key == 'right':
+            ship.list_boosters_on['right'] = 1
+    
+        elif event.key == 'left':
+            ship.list_boosters_on['left'] = 1
+
+        elif event.key == 't':
+            settings.thrust_vector_on = not settings.thrust_vector_on
+            print("Toggling Thrust Vector")
+
+        elif event.key == 'v':
+            settings.vel_vector_on = not settings.vel_vector_on
+            print("Toggling Velocity Vector")
+            
+        elif event.key == 'g':
+            settings.vector_field_on = not settings.vector_field_on
+            print("Toggling Gravity Field On/Off")
+
+        elif event.key == 'f':
+            settings.potential_field_on = not settings.potential_field_on
+            print("Toggling Potential Field Visualization")
+
+        elif event.key == 'p':
+            settings.ship_path_on = not settings.ship_path_on
+            print("Toggling Path Visibility for Ships")
+
+        elif event.key == 'l':
+            ship.planet_path_on = not settings.planet_path_on
+            print("Toggling Planet Path Visibility")
+
+        elif event.key == 'r':
+            reset_simulation(Bodies)
+            print("Resetting Simulation")
+        
+    return on_key
+
+def reset_simulation(Bodies):
     for body in Bodies:
         body.position[:] = body.i_p
         body.velocity[:] = body.i_v
@@ -199,13 +200,25 @@ def reset_simulation():
     for ship in Ships:
         ship.fuel_spent = 0
 
+class PlotSettings:
+    
+    def __init__(self,vector_field = True, ship_path = True, potential_field = False, vel_vector = False, thrust_vector = False, planet_path = False):
+        self.vector_field_on = vector_field
+        self.ship_path_on = ship_path
+        self.potential_field_on = potential_field
+        self.vel_vector_on = vel_vector
+        self.thrust_vector_on = thrust_vector
+        self.planet_path_on = planet_path
 
 def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigationStrategy = '_'):
 
     # Create and Initialize Variables and Settings #
     # ======================================== #
-    plotVectorField = True
-    plotPotentialField = False
+
+
+    settings = PlotSettings(vector_field = True, ship_path = True,
+                            potential_field = False, vel_vector = False, thrust_vector = False, planet_path = False)
+
     q = None
     follow_line = None
     q_v = None
@@ -224,7 +237,7 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black',layout='tight')
     window = max(Scenario_Bounds.x_max - Scenario_Bounds.x_min, Scenario_Bounds.y_max - Scenario_Bounds.y_min)
     fig.canvas.mpl_disconnect(fig.canvas.manager.key_press_handler_id) # Disconnect default key bindings
-    fig.canvas.mpl_connect('key_press_event', connect_on_key_function_to_ship(Ships[0]))
+    fig.canvas.mpl_connect('key_press_event', connect_on_key_function_to_ship(mainship,settings,Bodies))
     X,Y,U,V,M = vector_field(Bodies, window, spacing = window/10)
 
     # Initial Plotting
@@ -256,22 +269,22 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
             path.set_data(Bodies[i].path[:,0],Bodies[i].path[:,1])
 
             if isinstance(Bodies[i], Spacecraft):
-                path.set_visible(mainship.path_visible)
+                path.set_visible(settings.ship_path_on)
                 if Bodies[i].is_crashed:
                     path.set_color('red')
                     path.set_linestyle('--')
                 else:
                     path.set_color(Bodies[i].color)
-                path.set_linestyle('-')
+                    path.set_linestyle('-')
             else :
-                path.set_visible(mainship.planet_path_visible)
+                path.set_visible(settings.planet_path_on)
                 if Bodies[i].is_dynamically_updated == False:
                     path.set_data([],[])
                 
         
         # Update vector field if any Bodies are dynamic
-        q.set_visible(mainship.plot_vectorfield)
-        if mainship.plot_vectorfield:
+        q.set_visible(settings.vector_field_on)
+        if settings.vector_field_on:
             if any(body.is_dynamically_updated and not isinstance(body,Spacecraft) for body in Bodies):   
                 X,Y,U,V,M = vector_field(Bodies, window, spacing = window/10)
                 q.set_UVC(U, V)
@@ -287,15 +300,15 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
         for shadow, body in zip(shadow_circles, [b for b in Bodies if not isinstance(b, Spacecraft)]):
             if body.is_dynamically_updated:
                 shadow.center = (body.x, body.y)
-            shadow.set_visible(mainship.plot_potentialfield)
+            shadow.set_visible(settings.potential_field_on)
 
         if Ships:
             qv,qt,qa = body_vectors([mainship])
-            q_v.set_visible(mainship.velocity_vec)
+            q_v.set_visible(settings.vel_vector_on)
             q_v.set_UVC(qv['dx'], qv['dy'])
             q_v.set_offsets(np.array([[qv['x'], qv['y']]]))
 
-            q_t.set_visible(mainship.thrust_vec and mainship.thrust_mag != 0)
+            q_t.set_visible(settings.thrust_vector_on and mainship.thrust_mag != 0)
             q_t.set_UVC(qt['dx'], qt['dy'])
             q_t.set_offsets(np.array([[qt['x'], qt['y']]]))
             q_a.set_UVC(qa['dx_a'], qa['dy_a'])
