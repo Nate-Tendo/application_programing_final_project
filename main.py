@@ -175,16 +175,6 @@ def body_vectors(Bodies,t_scaling=5000,v_scaling=5000):
     
     return vel_vec, thr_vec, accel_vel
 
-r = np.arange(-2,4,0.01)
-def f_1(r):
-    x = 50*(r**3 - 5*r**2 +3*r + 11)+200
-    y = 50*(r**2 - 2*r + 3)
-    return x,y
-
-def parametric_func(f,r,lw=3):
-    x,y = f(r)
-    ax.plot(x,y,zorder=2,linewidth=lw,linestyle='--')
-
 def line(start_pt: tuple, end_pt: tuple, precision=1000, lw=3):
     x = np.linspace(start_pt[0], end_pt[0], precision)
     y = np.linspace(start_pt[1], end_pt[1], precision)
