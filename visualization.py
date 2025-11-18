@@ -88,7 +88,7 @@ def body_vectors(Bodies,t_scaling=5000,v_scaling=5000):
     
     return vel_vec, thr_vec, accel_vel
 
-def line(start_pt: tuple, end_pt: tuple, precision=1000, lw=3):
+def line(ax,start_pt: tuple, end_pt: tuple, precision=1000, lw=3):
     x = np.linspace(start_pt[0], end_pt[0], precision)
     y = np.linspace(start_pt[1], end_pt[1], precision)
     np.stack((x,y))
@@ -145,7 +145,7 @@ def plot_universe(ax, Bodies, window=100, repulsion_factor=10.0):
 
     return body_circles, shadow_circles
 
-def connect_on_key_function_to_ship(ship,settings,Bodies):
+def connect_on_key_function_to_ship(ship,settings,Bodies,Ships):
     def on_key(event):
         
         if event.key == 'up':
@@ -190,7 +190,7 @@ def connect_on_key_function_to_ship(ship,settings,Bodies):
         
     return on_key
 
-def reset_simulation(Bodies):
+def reset_simulation(Bodies,Ships):
     for body in Bodies:
         body.position[:] = body.i_p
         body.velocity[:] = body.i_v
@@ -237,7 +237,7 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black',layout='tight')
     window = max(Scenario_Bounds.x_max - Scenario_Bounds.x_min, Scenario_Bounds.y_max - Scenario_Bounds.y_min)
     fig.canvas.mpl_disconnect(fig.canvas.manager.key_press_handler_id) # Disconnect default key bindings
-    fig.canvas.mpl_connect('key_press_event', connect_on_key_function_to_ship(mainship,settings,Bodies))
+    fig.canvas.mpl_connect('key_press_event', connect_on_key_function_to_ship(mainship,settings,Bodies,Ships))
     X,Y,U,V,M = vector_field(Bodies, window, spacing = window/10)
 
     # Initial Plotting
@@ -247,7 +247,7 @@ def plot_universe_animation(Bodies, Ships, Scenario_Bounds, Time_Step, navigatio
     
     if Ships:
         if mainship.nav_strat == 'line_follow':
-          x, y, follow_line = line(mainship.path_start,mainship.path_end,10000)
+          x, y, follow_line = line(ax,mainship.path_start,mainship.path_end,10000)
    
         qv, qt, qa = body_vectors([mainship])    
 
